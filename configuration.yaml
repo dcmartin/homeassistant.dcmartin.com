@@ -1,0 +1,4436 @@
+homeassistant:
+  name: Fazenda da Saudade (havm)
+  latitude: 37.174956
+  longitude: -121.816344
+  elevation: 827
+  unit_system: imperial
+  time_zone: America/Los_Angeles
+  customize: !include customize.yaml
+
+system_health:
+mobile_app:
+cloud:
+hassio:
+discovery:
+frontend:
+config:
+map:
+conversation:
+logbook:
+snips:
+homekit:
+updater:
+  include_used_components: true
+ifttt:
+  key: !secret ifttt_key
+http:
+  base_url: havm.dcmartin.com:8123
+  api_password: !secret http_api_password
+  trusted_networks: 
+  cors_allowed_origins: 
+    - https://google.com
+    - https://home-assistant.io
+    - http://dcmartin.com
+mqtt:
+  broker: !secret mqtt_broker
+  port: 1883
+  username: !secret mqtt_username
+  password: !secret mqtt_password
+tts:
+  - platform: google_translate
+recorder:
+  purge_keep_days: 7
+
+history: !include history.yaml
+
+sensor external_ip:
+  - platform: rest
+    resource: http://ip.jsontest.com
+    name: externalip
+    value_template: >
+      {%- if value_json is defined -%} 
+        {{ value_json.ip | default(null) }}
+      {%- else -%}null{%- endif -%}
+
+sun:
+  elevation: 827
+sensor solar:
+  platform: template
+  sensors:
+    solar_angle:
+      value_template: '{{ states.sun.sun.attributes.elevation }}'
+      unit_of_measurement: 'degrees'
+    sunrise:
+      value_template: '{{ as_timestamp(states.sun.sun.attributes.next_rising) | timestamp_custom("%I:%M %p") }}'
+    sunset:
+      value_template: '{{ as_timestamp(states.sun.sun.attributes.next_setting) | timestamp_custom("%I:%M %p") }}'
+
+switch tplink_hs100:
+  - platform: tplink
+    name: ian_tv
+    host: 192.168.1.42
+
+switch fronthall_lamp:
+  - platform: tplink
+    name: fronthall_lamp
+    host: 192.168.1.43
+
+switch kitchen_tv:
+  - platform: tplink
+    name: kitchen_tv
+    host: 192.168.1.44
+
+switch livingroom_tv:
+  - platform: tplink
+    name: livingroom_tv
+
+## HUE bridge & lights
+hue:
+  bridges:
+    - host: 192.168.1.49
+
+switch lights_template:
+  - platform: template
+    switches:
+      livingroom_lights:
+        friendly_name: livingroom_lights
+        value_template: >
+          {{ is_state('light.living_room','on') }}
+        turn_on:
+          - service: homeassistant.turn_on
+            data_template:
+              entity_id: light.living_room
+        turn_off:
+          - service: homeassistant.turn_off
+            data_template:
+              entity_id: light.living_room
+
+## PANEL_IFRAME (tabs in HTTP web interface; see "frontend")
+panel_iframe:
+  portainer:
+    title: Portainer
+    icon: mdi:anchor
+    url: http://192.168.1.250:9000
+  grafana:
+    title: Grafana
+    icon: mdi:chart-timeline
+    url: http://192.168.1.250:3000
+  influxdb:
+    title: InfluxDB
+    icon: mdi:chart-areaspline
+    url: http://192.168.1.250:8888
+  cameras:
+    title: 'Cameras'
+    icon: mdi:webcam
+    url: 'http://www.dcmartin.com/LOCAL.html'
+  motion:
+    title: 'Motion AddOn'
+    icon: mdi:image-plus
+    url: 'http://192.168.1.250:7999'
+  ageathome:
+    title: 'Age-At-Home'
+    icon: mdi:home-account
+    url: 'http://192.168.1.250:8999'
+  nodered:
+    title: 'Node-RED'
+    icon: mdi:clipboard-flow
+    url: 'http://192.168.1.250:1880'
+  docsisgw:
+    title: 'DOCSISGW'
+    icon: mdi:router-wireless
+    url: 'http://192.168.1.1'
+  dslgw:
+    title: 'DSLGW'
+    icon: mdi:router-wireless
+    url: 'http://192.168.1.2'
+  digits:
+    title: 'DIGITS'
+    icon: mdi:format-list-numbers
+    url: 'http://digits.dcmartin.com:5000/'
+  rpi2:
+    title: DHCP/DNS
+    icon: mdi:console
+    url: 'http://rpi2.dcmartin.com:7681'
+  plexpy:
+    title: PLEX usage
+    icon: mdi:television
+    url: 'http://plex.dcmartin.com:8181'
+
+## GPS
+sensor state_template gps_trackers:
+  - platform: template
+    sensors:
+      all_gps:
+        entity_id: 
+          - states.device_tracker
+          - sun.sun
+        value_template: >
+          {%- for state in states.device_tracker -%}
+            {%- if loop.first -%}[{%- endif -%}
+            {%- if state.attributes.source_type == 'gps' and state.attributes.device_status == 'online' -%}
+              {{state.entity_id.replace('device_tracker.','')|truncate(8,false,"")|tojson}},
+            {%- endif -%}
+          {%- endfor -%}null]
+
+## WEBCAMS
+sensor state_template webcam_trackers:
+  - platform: template
+    sensors:
+      all_wcv80n:
+        entity_id: states.camera
+        value_template: >
+          {%- for state in states.camera -%}
+            {%- if loop.first -%}[{%- endif -%}
+            {%- if state.name.startswith('wcv80n') -%} 
+              {{state.name.replace('wcv80n_','')|truncate(8,false,"")|tojson}},
+            {%- else -%}
+              {{state.name|truncate(8,false,"")|tojson}},
+            {%- endif -%}
+          {%- endfor -%}null]
+
+###
+### AGEATHOME
+###
+
+# learning on/off
+switch aah_switch:
+  - platform: template
+    switches:
+      ageathome_learning:
+        friendly_name: ageathome_learning
+        value_template: >
+          {{ is_state('sensor.ageathome_learning','on') }}
+        turn_on:
+          - service: script.ageathome_learning_on
+        turn_off:
+          - service: script.ageathome_learning_off
+
+binary_sensor aah_binary_sensor:
+  - platform: template
+    sensors:
+      ageathome_learning:
+        entity_id: 
+          - input_boolean.ageathome_learning
+        value_template: >
+          {{ is_state('input_boolean.ageathome_learning','on') }}
+      ageathome_notify_email:
+        entity_id: 
+          - input_boolean.ageathome_notify_email
+        value_template: >
+          {{ is_state('input_boolean.ageathome_notify_email','on') }}
+      ageathome_notify_gate:
+        entity_id: 
+          - input_boolean.ageathome_notify_gate
+        value_template: >
+          {{ is_state('input_boolean.ageathome_notify_gate','on') }}
+      ageathome_notify_poolhouse:
+        entity_id: 
+          - input_boolean.ageathome_notify_poolhouse
+        value_template: >
+          {{ is_state('input_boolean.ageathome_notify_poolhouse','on') }}
+      ageathome_notify_kitchen:
+        entity_id: 
+          - input_boolean.ageathome_notify_kitchen
+        value_template: >
+          {{ is_state('input_boolean.ageathome_notify_kitchen','on') }}
+      ageathome_notify_bathroom:
+        entity_id: 
+          - input_boolean.ageathome_notify_bathroom
+        value_template: >
+          {{ is_state('input_boolean.ageathome_notify_bathroom','on') }}
+      ageathome_notify_frontdoor:
+        entity_id: 
+          - input_boolean.ageathome_notify_frontdoor
+        value_template: >
+          {{ is_state('input_boolean.ageathome_notify_frontdoor','on') }}
+      ageathome_notify_road:
+        entity_id: 
+          - input_boolean.ageathome_notify_road
+        value_template: >
+          {{ is_state('input_boolean.ageathome_notify_road','on') }}
+
+binary_sensor devices_notify_template:
+  - platform: template
+    sensors:
+      devices_notify_offline:
+        entity_id: 
+          - input_boolean.devices_notify_offline
+        value_template: >
+          {{ is_state('input_boolean.devices_notify_offline','on') }}
+
+## people - statically defined known entities to track
+## devices - discovered devices from device_tracker entities where "friendly_name" has "ageathome_" prefix
+## locations - discovered locations from camera entities where "name" has "ageathome_" prefix
+
+sensor aah_state_template:
+  - platform: template
+    sensors:
+      aah_family:
+        value_template: >
+          {{ ('martin',)|list }}
+      aah_defined_locations:
+        value_template: >
+          {{ ('kitchen','bathroom','frontdoor','road','gate','poolhouse')|list }}
+      aah_people:
+        value_template: >
+          {{ ('david','keli','hali','ian','riley','ellen')|list }}
+      aah_cars:
+        value_template: >
+          {{ ('c70','c30','xc90','sprinter','suburban','rtv1100')|list }}
+      aah_neighhors:
+        value_template: >
+          {{ ('fletcher','soukoulis','wcox','ccox')|list }}
+      aah_friends:
+        value_template: >
+          {{ ('miriam','corrine')|list }}
+      aah_locations:
+        entity_id: states.device_tracker
+        value_template: >
+          {%- for state in states.device_tracker -%}
+            {%- if loop.first -%} [ {%- endif -%}
+            {%- if state.attributes.friendly_name.startswith('ageathome_') -%}
+              {{state.attributes.friendly_name.replace('ageathome_','')|tojson}},
+            {%- endif -%}
+          {%- endfor -%}null]
+      aah_cameras:
+        entity_id: states.camera
+        value_template: >
+          {%- for state in states.camera -%}
+            {%- if loop.first -%} [ {%- endif -%}
+            {%- if state.attributes.friendly_name.startswith('ageathome_') -%}
+              {{state.entity_id.replace('camera.','')|tojson}},
+            {%- endif -%}
+          {%- endfor -%}null]
+      aah_devices:
+        entity_id: states.device_tracker
+        value_template: >
+          {%- for state in states.device_tracker -%}
+            {%- if loop.first -%}[{%- endif -%}
+            {%- if state.attributes.friendly_name.startswith('ageathome_') -%}
+              {"dev":{{state.entity_id.replace('device_tracker.','')|tojson}},"loc":{{state.attributes.friendly_name.replace('ageathome_','')|tojson}}},
+            {%- endif -%}
+          {%- endfor -%}null]
+      aah_icloud:
+        entity_id: states.device_tracker
+        value_template: >
+         {%- for state in states.device_tracker -%}
+            {%- if loop.first -%} [ {%- endif -%}
+            {%- if state.attributes.source_type and state.attributes.account_name is defined -%}
+              {"device":"{{state.entity_id.replace('device_tracker.','')}}","name":"{{state.attributes.friendly_name}}"},
+            {%- endif -%}
+          {%- endfor -%}null]
+
+sensor aah_entity_picture_template:
+  - platform: template
+    sensors:
+      kitchen_entity_picture:
+        # entity_id: camera.kitchen_image
+        value_template: '{{ states.camera.kitchen_image_annotated.attributes.entity_picture }}'
+      bathroom_entity_picture:
+        # entity_id: camera.bathroom_image_annotated
+        value_template: '{{ states.camera.bathroom_image_annotated.attributes.entity_picture }}'
+      frontdoor_entity_picture:
+        # entity_id: camera.frontdoor_image_annotated
+        value_template: '{{ states.camera.frontdoor_image_annotated.attributes.entity_picture }}'
+      road_entity_picture:
+        # entity_id: camera.road_image_annotated
+        value_template: '{{ states.camera.road_image_annotated.attributes.entity_picture }}'
+      gate_entity_picture:
+        # entity_id: camera.gate_image_annotated
+        value_template: '{{ states.camera.gate_image_annotated.attributes.entity_picture }}'
+      poolhouse_entity_picture:
+        # entity_id: camera.poolhouse_image_annotated
+        value_template: '{{ states.camera.poolhouse_image_annotated.attributes.entity_picture }}'
+
+###
+### SONOS
+###
+
+## short-cut sensors for sonos in kitchen
+sensor sonos_play1:
+  platform: template
+  sensors:
+    play1_state:
+      entity_id: media_player.play1
+      value_template: '{{ states.media_player.play1.state }}'
+    play1_volume:
+      entity_id: media_player.play1
+      value_template: '{{ states.media_player.play1.attributes.volume_level }}'
+    play1_volume_muted:
+      entity_id: media_player.play1
+      value_template: '{{ states.media_player.play1.attributes.volume_muted }}'
+    play1_media_content_id:
+      entity_id: media_player.play1
+      value_template: '{{ states.media_player.play1.attributes.media_content_id }}'
+    play1_media_content_type:
+      entity_id: media_player.play1
+      value_template: '{{ states.media_player.play1.attributes.media_content_type }}'
+    play1_media_duration:
+      entity_id: media_player.play1
+      value_template: '{{ states.media_player.play1.attributes.media_duration }}'
+    play1_media_title:
+      entity_id: media_player.play1
+      value_template: '{{ states.media_player.play1.attributes.media_title }}'
+    play1_media_artist:
+      entity_id: media_player.play1
+      value_template: '{{ states.media_player.play1.attributes.media_artist }}'
+    play1_media_album_name:
+      entity_id: media_player.play1
+      value_template: '{{ states.media_player.play1.attributes.media_album_name }}'
+
+## track history of sonos paused
+sensor play1_paused:
+  - platform: history_stats
+    name: play1_paused
+    entity_id: sensor.play1_state
+    state: 'paused'
+    type: ratio
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+## sonos in livingroom
+sensor sonos_play3:
+  - platform: template
+    sensors:
+      play3_state:
+        entity_id: media_player.play3
+        value_template: '{{ states.media_player.play3.state }}'
+      play3_volume:
+        entity_id: media_player.play3
+        value_template: '{{ states.media_player.play3.attributes.volume_level }}'
+      play3_volume_muted:
+        entity_id: media_player.play3
+        value_template: '{{ states.media_player.play3.attributes.volume_muted }}'
+      play3_media_content_id:
+        entity_id: media_player.play3
+        value_template: '{{ states.media_player.play3.attributes.media_content_id }}'
+      play3_media_content_type:
+        entity_id: media_player.play3
+        value_template: '{{ states.media_player.play3.attributes.media_content_type }}'
+      play3_media_duration:
+        entity_id: media_player.play3
+        value_template: '{{ states.media_player.play3.attributes.media_duration }}'
+      play3_media_title:
+        entity_id: media_player.play3
+        value_template: '{{ states.media_player.play3.attributes.media_title }}'
+      play3_media_artist:
+        entity_id: media_player.play3
+        value_template: '{{ states.media_player.play3.attributes.media_artist }}'
+      play3_media_album_name:
+        entity_id: media_player.play3
+        value_template: '{{ states.media_player.play3.attributes.media_album_name }}'
+
+sensor play3_paused:
+  - platform: history_stats
+    name: play3_paused
+    entity_id: sensor.play3_state
+    state: 'paused'
+    type: ratio
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+###
+### DEVICE TRACKERS
+###
+
+## device tracking from this host
+device_tracker dt_nmap:
+  - platform: nmap_tracker
+    hosts: 192.168.1.0/24
+    home_interval: 10
+    interval_seconds: 30
+    new_device_defaults:
+      track_new_devices: true
+      hide_if_away: false
+    consider_home: 180
+    exclude:
+      - 192.168.1.1
+      - 192.168.1.2
+      - 192.168.1.250
+
+## device tracking from iCloud
+device_tracker:
+  - platform: icloud
+    username: !secret icloud_username
+    password: !secret icloud_password
+    account_name: DCMARTIN
+
+## device tracking from LAN/WAN gateway 
+#  - platform: mikrotik
+#    host: 192.168.1.1
+#    username: !secret mikrotik_username
+#    password: !secret mikrotik_password
+
+###
+### ZONES
+###
+
+zone: !include zones.yaml
+
+###
+### NOTIFY
+###
+
+notify ageathome_smtp:
+  - name: ageathome_smtp
+    sender_name: HomeAssistant-P40
+    platform: smtp
+    username: ageathome
+    password: !secret wcv80n_password
+    sender: ageathome@dcmartin.com
+    recipient:
+      - ageathome@dcmartin.com
+    server: smtp.dcmartin.com
+    encryption: starttls
+    port: 587
+    timeout: 15
+    debug: true
+    # encryption: none
+    # port: 25
+
+ios:
+  push:
+    categories:
+      - name: Train or Ignore
+        identifier: train_ignore
+        actions:
+          - identifier: 'TRAIN'
+            title: 'Add to review'
+            activationMode: 'background'
+            authenticationRequired: no 
+            destructive: no
+            behavior: 'default'
+          - identifier: 'IGNORE'
+            title: 'Ignore event'
+            activationMode: 'background'
+            authenticationRequired: no
+            destructive: no
+            behavior: 'default'
+            # behavior: 'textInput'
+            # textInputButtonTitle: 'Who?'
+            # textInputPlaceholder: 'Unknown'
+
+###
+### WEATHER
+###
+
+## weathermap forecast
+camera weatherforecast:
+  - platform: generic
+    name: weatherforecast
+    still_image_url: 'https://www.yr.no/sted/USA/California/San_Francisco/meteogram.svg'
+    content_type: 'image/svg+xml'
+
+## weather underground radar
+camera wuradar:
+  - platform: generic
+    name: wuradar
+    still_image_url: 'https://icons.wxug.com/data/weather-maps/radar/united-states/bakersfield-california-region-current-radar-animation.gif'
+
+## WEATHER UNDERGROUND (requires account; see secrets.yaml)
+sensor kcasanjo411:
+  - platform: wunderground
+    api_key: !secret wunderground_api_key
+    pws_id: KCASANJO411
+    monitored_conditions:
+      - weather
+      - feelslike_f
+      - precip_today_in
+      - relative_humidity
+      - visibility_mi
+      - wind_dir
+      - wind_gust_mph
+      - wind_mph
+      - weather_1d
+      - weather_1n
+      - weather_2d
+      - weather_2n
+      - weather_3d
+      - weather_3n
+      - weather_4d
+      - weather_4n
+
+###
+### WEBCAMS
+###
+
+## panasomic
+
+camera poolcamera:
+  - platform: mjpeg
+    mjpeg_url: http://192.168.1.162/nphMotionJpeg?Resolution=640x480&Quality=Clarity
+    still_image_url: http://192.168.1.162/SnapshotJPEG?Resolution=640x480&Quality=Clarity&View=Normal
+    name: poolcamera
+    username: !secret wcv80n_username
+    password: !secret wcv80n_password
+  - platform: mjpeg
+    mjpeg_url: http://192.168.1.163/img/video.mjpeg
+    still_image_url: http://192.168.1.163/img/snapshot.cgi
+    name: wcv80n_woodshed
+    username: !secret wcv80n_username
+    password: !secret wcv80n_password
+  - platform: mjpeg
+    mjpeg_url: http://192.168.1.164/img/video.mjpeg
+    still_image_url: http://192.168.1.164/img/snapshot.cgi
+    name: wcv80n_livingroom
+    username: !secret wcv80n_username
+    password: !secret wcv80n_password
+  - platform: mjpeg
+    mjpeg_url: http://192.168.1.165/img/video.mjpeg
+    still_image_url: http://192.168.1.165/img/snapshot.cgi
+    name: wcv80n_dogpond
+    username: !secret wcv80n_username
+    password: !secret wcv80n_password
+  - platform: mjpeg
+    mjpeg_url: http://192.168.1.166/img/video.mjpeg
+    still_image_url: http://192.168.1.166/img/snapshot.cgi
+    name: wcv80n_fireplace
+    username: !secret wcv80n_username
+    password: !secret wcv80n_password
+  # NO 167
+  - platform: mjpeg
+    mjpeg_url: http://192.168.1.168/img/video.mjpeg
+    still_image_url: http://192.168.1.168/img/snapshot.cgi
+    name: wcv80n_phexterior
+    username: !secret wcv80n_username
+    password: !secret wcv80n_password
+  - platform: mjpeg
+    mjpeg_url: http://192.168.1.169/img/video.mjpeg
+    still_image_url: http://192.168.1.169/img/snapshot.cgi
+    name: wcv80n_dogyard
+    username: !secret wcv80n_username
+    password: !secret wcv80n_password
+  - platform: mjpeg
+    mjpeg_url: http://192.168.1.170/img/video.mjpeg
+    still_image_url: http://192.168.1.170/img/snapshot.cgi
+    name: wcv80n_dogshedmiddle
+    username: !secret wcv80n_username
+    password: !secret wcv80n_password
+  - platform: mjpeg
+    mjpeg_url: http://192.168.1.171/img/video.mjpeg
+    still_image_url: http://192.168.1.171/img/snapshot.cgi
+    name: wcv80n_sideyard
+    username: !secret wcv80n_username
+    password: !secret wcv80n_password
+  - platform: mjpeg
+    mjpeg_url: http://192.168.1.172/img/video.mjpeg
+    still_image_url: http://192.168.1.172/img/snapshot.cgi
+    name: wcv80n_dogshedfront
+    username: !secret wcv80n_username
+    password: !secret wcv80n_password
+  - platform: mjpeg
+    mjpeg_url: http://192.168.1.173/img/video.mjpeg
+    still_image_url: http://192.168.1.173/img/snapshot.cgi
+    name: wcv80n_dogshed
+    username: !secret wcv80n_username
+    password: !secret wcv80n_password
+  - platform: mjpeg
+    mjpeg_url: http://192.168.1.174/img/video.mjpeg
+    still_image_url: http://192.168.1.174/img/snapshot.cgi
+    name: wcv80n_pondview
+    username: !secret wcv80n_username
+    password: !secret wcv80n_password
+  - platform: mjpeg
+    mjpeg_url: http://192.168.1.175/img/video.mjpeg
+    still_image_url: http://192.168.1.175/img/snapshot.cgi
+    name: wcv80n_gravelpad
+    username: !secret wcv80n_username
+    password: !secret wcv80n_password
+  - platform: mjpeg
+    mjpeg_url: http://192.168.1.176/img/video.mjpeg
+    still_image_url: http://192.168.1.176/img/snapshot.cgi
+    name: wcv80n_upperpath
+    username: !secret wcv80n_username
+    password: !secret wcv80n_password
+  - platform: mjpeg
+    mjpeg_url: http://192.168.1.177/img/video.mjpeg
+    still_image_url: http://192.168.1.177/img/snapshot.cgi
+    name: wcv80n_laundry
+    username: !secret wcv80n_username
+    password: !secret wcv80n_password
+  - platform: mjpeg
+    mjpeg_url: http://192.168.1.178/img/video.mjpeg
+    still_image_url: http://192.168.1.178/img/snapshot.cgi
+    name: wcv80n_foyer
+    username: !secret wcv80n_username
+    password: !secret wcv80n_password
+  - platform: mjpeg
+    mjpeg_url: http://192.168.1.179/img/video.mjpeg
+    still_image_url: http://192.168.1.179/img/snapshot.cgi
+    name: wcv80n_frontwalk
+    username: !secret wcv80n_username
+    password: !secret wcv80n_password
+  - platform: mjpeg
+    mjpeg_url: http://192.168.1.180/img/video.mjpeg
+    still_image_url: http://192.168.1.180/img/snapshot.cgi
+    name: wcv80n_garage
+    username: !secret wcv80n_username
+    password: !secret wcv80n_password
+  - platform: mjpeg
+    mjpeg_url: http://192.168.1.182/img/video.mjpeg
+    still_image_url: http://192.168.1.182/img/snapshot.cgi
+    name: wcv80n_diningroom
+    username: !secret wcv80n_username
+    password: !secret wcv80n_password
+  - platform: mjpeg
+    mjpeg_url: http://192.168.1.183/img/video.mjpeg
+    still_image_url: http://192.168.1.183/img/snapshot.cgi
+    name: wcv80n_backyard
+    username: !secret wcv80n_username
+    password: !secret wcv80n_password
+
+## AGE-AT-HOME
+
+camera roughfog:
+  - platform: mjpeg
+    name: ageathome_kitchen
+    mjpeg_url: http://192.168.1.34:8081/
+    authentication: basic
+    username: !secret wcv80n_username
+    password: !secret wcv80n_password
+
+camera dampcloud:
+  - platform: mjpeg
+    name: ageathome_bathroom
+    mjpeg_url: http://192.168.1.35:8081/
+    authentication: basic
+    username: !secret wcv80n_username
+    password: !secret wcv80n_password
+
+camera quietwater:
+  - platform: mjpeg
+    name: ageathome_road
+    mjpeg_url: http://192.168.1.36:8081/
+    authentication: basic
+    username: !secret wcv80n_username
+    password: !secret wcv80n_password
+
+camera roughwind:   
+  - platform: mjpeg
+    name: ageathome_frontdoor
+    mjpeg_url: http://192.168.1.37:8081/
+    authentication: basic
+    username: !secret wcv80n_username
+    password: !secret wcv80n_password
+
+camera agedbush:   
+  - platform: mjpeg
+    name: ageathome_gate
+    mjpeg_url: http://192.168.1.38:8081/
+    authentication: basic
+    username: !secret wcv80n_username
+    password: !secret wcv80n_password
+
+camera livelypaper:   
+  - platform: mjpeg
+    name: ageathome_poolhouse
+    mjpeg_url: http://192.168.1.39:8081/
+    authentication: basic
+    username: !secret wcv80n_username
+    password: !secret wcv80n_password
+
+##
+## STATUS CATCHERS
+##
+
+sensor count_lights:
+  - platform: mqtt
+    name: count_lights
+    state_topic: 'state/light/+'
+    value_template: >
+      {% if value_json is defined %} {{ value_json['items'] | length }} {% else %} 0 {% endif %}
+
+sensor count_automations:
+  - platform: mqtt
+    name: count_automations
+    state_topic: 'state/automation/+'
+    value_template: >
+      {% if value_json is defined %} {{ value_json['items'] | length }} {% else %} 0 {% endif %}
+
+sensor count_binary_sensors:
+  - platform: mqtt
+    name: count_binary_sensors
+    state_topic: 'state/binary_sensor/+'
+    value_template: >
+      {% if value_json is defined %} {{ value_json['items'] | length }} {% else %} 0 {% endif %}
+
+sensor count_cameras:
+  - platform: mqtt
+    name: count_cameras
+    state_topic: 'state/camera/+'
+    value_template: >
+      {% if value_json is defined %} {{ value_json['items'] | length }} {% else %} 0 {% endif %}
+
+sensor count_device_trackers:
+  - platform: mqtt
+    name: count_device_trackers
+    state_topic: 'state/device_tracker/+'
+    value_template: >
+      {% if value_json is defined %} {{ value_json['items'] | length }} {% else %} 0 {% endif %}
+
+sensor triggered_template:
+  - platform: template
+    sensors:
+      triggered_device_trackers:
+        entity_id: automation.publish_device_trackers
+        value_template: >
+         {{ as_timestamp(states.automation.publish_device_trackers.attributes.last_triggered) | timestamp_custom("%a %b %d @ %I:%M %p") }}
+
+sensor count_media_players:
+  - platform: mqtt
+    name: count_media_players
+    state_topic: 'state/media_player/+'
+    value_template: >
+      {% if value_json is defined %} {{ value_json['items'] | length }} {% else %} 0 {% endif %}
+
+sensor count_sensors:
+  - platform: mqtt
+    name: count_sensors
+    state_topic: 'state/sensor/+'
+    value_template: >
+      {% if value_json is defined %} {{ value_json['items'] | length }} {% else %} 0 {% endif %}
+
+sensor count_zones:
+  - platform: mqtt
+    name: count_zones
+    state_topic: 'state/zone/+'
+    value_template: >
+      {% if value_json is defined %} {{ value_json['items'] | length }} {% else %} 0 {% endif %}
+
+##
+## ERRORS
+##
+
+sensor error:
+  - platform: mqtt
+    state_topic: 'error/+'
+    name: error
+    value_template: '{% if value_json is defined %} {{ value_json }} {% else %} "nothing" {% endif %}'
+     
+sensor error_id:
+  - platform: mqtt
+    state_topic: 'error/+'
+    name: error_id
+    value_template: '{% if value_json is defined %} {{ value_json.id }} {% else %} "nothing" {% endif %}'
+
+sensor error_device:
+  - platform: mqtt
+    state_topic: 'error/+'
+    name: error_device
+    value_template: '{% if value_json is defined %} {{ value_json.device }} {% else %} "nothing" {% endif %}'
+
+camera error_image:
+  - platform: generic
+    name: error_image
+    still_image_url: 'http://age-at-home.dcmartin.com:8999/CGI/aah-images.cgi?db={{states.sensor.error_device.state}}&id={{states.sensor.error_id.state}}&ext=full'
+
+##
+## WRONG
+##
+
+sensor aah_wrong_classes:
+  - platform: mqtt
+    name: aah_wrong_classes
+    state_topic: 'wrong/+/+'
+    value_template: >
+      {% if value_json is defined %}
+        {% set str = value_json.classes|replace("'","")|replace("[","")|replace("]","") %} {{ str.split(", ") }}
+      {% else %}
+        {{ null | list }}
+      {% endif %}
+
+sensor aah_wrong_device:
+  - platform: mqtt
+    name: aah_wrong_device
+    state_topic: 'wrong/#'
+    value_template: '{% if value_json is defined %} {{ value_json.device }} {% else %} "none" {% endif %}'
+
+sensor aah_wrong_id:
+  - platform: mqtt
+    name: aah_wrong_id
+    state_topic: 'wrong/#'
+    value_template: '{% if value_json is defined %} {{ value_json.id }} {% else %} "none" {% endif %}'
+
+sensor aah_wrong_what:
+  - platform: mqtt
+    state_topic: 'wrong/#'
+    name: aah_wrong_what
+    value_template: '{% if value_json is defined %} {{ value_json.class }} {% else %} "nothing" {% endif %}'
+
+sensor aah_wrong_who:
+  - platform: mqtt
+    state_topic: 'wrong/#'
+    name: aah_wrong_who
+    value_template: '{% if value_json is defined %} {{ value_json.model }} {% else %} "nobody" {% endif %}'
+
+sensor aah_wrong_why:
+  - platform: mqtt
+    state_topic: 'wrong/#'
+    name: aah_wrong_why
+    value_template: '{% if value_json is defined %} {{ value_json.score }} {% else %} 0.0 {% endif %}'
+
+sensor aah_wrong_date:
+  - platform: mqtt
+    state_topic: 'wrong/#'
+    name: aah_wrong_date
+    value_template: '{% if value_json is defined -%} {{ value_json.date|int }} {%- else -%} -1 {%- endif -%}'
+
+sensor aah_wrong_where:
+  - platform: mqtt
+    state_topic: 'wrong/#'
+    name: aah_wrong_where
+    value_template: '{% if value_json is defined %} {{ value_json.location }} {% else %} "nowhere" {% endif %}'
+
+sensor aah_wrong_when:
+  - platform: mqtt
+    state_topic: 'wrong/#'
+    name: aah_wrong_when
+    value_template: '{% if value_json is defined %} {{ value_json.date | timestamp_custom("%a %b %d @ %I:%M %p") }} {% else %}null{% endif %}'
+
+##
+## LAST ACTIVITY
+##
+
+sensor last_device:
+  - platform: mqtt
+    name: last_device
+    state_topic: 'presence/#'
+    value_template: '{% if value_json is defined %} {{ value_json.device }} {% else %} "none" {% endif %}'
+
+sensor last_id:
+  - platform: mqtt
+    name: last_id
+    state_topic: 'presence/#'
+    value_template: '{% if value_json is defined %} {{ value_json.id }} {% else %} "none" {% endif %}'
+
+sensor last_what:
+  - platform: mqtt
+    state_topic: 'presence/#'
+    name: last_what
+    value_template: '{% if value_json is defined %} {{ value_json.class }} {% else %} "nothing" {% endif %}'
+
+sensor last_who:
+  - platform: mqtt
+    state_topic: 'presence/#'
+    name: last_who
+    value_template: '{% if value_json is defined %} {{ value_json.model }} {% else %} "nobody" {% endif %}'
+
+sensor last_why:
+  - platform: mqtt
+    state_topic: 'presence/#'
+    name: last_why
+    value_template: '{% if value_json is defined %} {{ value_json.score }} {% else %} 0.0 {% endif %}'
+
+sensor last_date:
+  - platform: mqtt
+    state_topic: 'presence/#'
+    name: last_date
+    value_template: '{% if value_json is defined -%} {{ value_json.date|int }} {%- else -%} -1 {%- endif -%}'
+
+sensor last_where:
+  - platform: mqtt
+    state_topic: 'presence/#'
+    name: last_where
+    value_template: '{% if value_json is defined %} {{ value_json.location }} {% else %} "nowhere" {% endif %}'
+
+sensor last_when:
+  - platform: mqtt
+    state_topic: 'presence/#'
+    name: last_when
+    value_template: '{% if value_json is defined %} {{ value_json.date | timestamp_custom("%a %b %d @ %I:%M %p") }} {% else %} "never" {% endif %}'
+
+sensor last_size:
+  - platform: mqtt
+    state_topic: 'presence/#'
+    name: last_size
+    value_template: '{% if value_json is defined %} {{ value_json.size }} {% else %} 0 {% endif %}'
+
+sensor image_size_history:
+  - platform: history_stats
+    name: image_size_history
+    entity_id: sensor.last_size
+    state: 'on'
+    type: count
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+###
+### GET A PICTURE
+###
+
+camera aah_wrong_kitchen:
+  name: aah_wrong_kitchen
+  platform: generic
+  limit_refetch_to_url_change: false
+  still_image_url: >
+    http://homeassistant.dcmartin.com:8123{{- states(("sensor.","kitchen","_entity_picture")|join|lower) -}}
+
+# CAMERAS (JPEG)
+
+camera last_image:
+  - platform: mqtt
+    name: last_image
+    topic: 'image/+'
+
+camera last_image_annotated:
+  - platform: mqtt
+    name: last_image_annotated
+    topic: 'image-annotated/+'
+
+camera last_image_cropped:
+  - platform: mqtt
+    name: last_image_cropped
+    topic: 'image-cropped/+'
+
+camera last_image_composed:
+  - platform: mqtt
+    name: last_image_composed
+    topic: 'image-composed/+'
+
+camera last_image_composite:
+  - platform: mqtt
+    name: last_image_composite
+    topic: 'image-composite/+'
+
+camera last_image_animated:
+  - platform: mqtt
+    name: last_image_animated
+    topic: 'image-animated/+'
+
+##
+## KITCHEN
+##
+
+sensor kitchen_last:
+  - platform: mqtt
+    name: kitchen_last
+    state_topic: 'presence/kitchen'
+    value_template: '{% if value_json is defined %} {{ value_json.class }} {% else %} "nothing" {% endif %}'
+
+sensor kitchen_what:
+  - platform: mqtt
+    name: kitchen_what
+    expire_after: 30
+    state_topic: 'presence/kitchen'
+    value_template: '{% if value_json is defined %} {{ value_json.class }} {% else %} "nothing" {% endif %}'
+
+sensor kitchen_who:
+  - platform: mqtt
+    name: kitchen_who
+    state_topic: 'presence/kitchen'
+    value_template: '{% if value_json is defined %} {{ value_json.model }} {% else %} "nobody" {% endif %}'
+
+sensor kitchen_why:
+  - platform: mqtt
+    name: kitchen_why
+    state_topic: 'presence/kitchen'
+    value_template: '{% if value_json is defined %} {{ value_json.score }} {% else %} 0.0 {% endif %}'
+
+sensor kitchen_date:
+  - platform: mqtt
+    name: kitchen_date
+    state_topic: 'presence/kitchen'
+    value_template: '{% if value_json is defined %} {{ value_json.date|int }} {% else %} -1 {% endif %}'
+
+sensor kitchen_size:
+  - platform: mqtt
+    name: kitchen_size
+    state_topic: 'presence/kitchen'
+    value_template: '{% if value_json is defined %} {{ value_json.size|int }} {% else %} -1 {% endif %}'
+
+# CAMERA (JPEG)
+
+camera kitchen_image:
+  - platform: mqtt
+    name: kitchen_image
+    topic: 'image/kitchen'
+
+camera kitchen_image_composed:
+  - platform: mqtt
+    name: kitchen_image_composed
+    topic: 'image-composed/kitchen'
+
+camera kitchen_image_annotated:
+  - platform: mqtt
+    name: kitchen_image_annotated
+    topic: 'image-annotated/kitchen'
+
+camera kitchen_image_cropped:
+  - platform: mqtt
+    name: kitchen_image_cropped
+    topic: 'image-cropped/kitchen'
+
+camera kitchen_image_composite:
+  - platform: mqtt
+    name: kitchen_image_composite
+    topic: 'image-composite/kitchen'
+
+camera kitchen_image_animated:
+  - platform: mqtt
+    name: kitchen_image_animated
+    topic: 'image-animated/kitchen'
+
+##
+## BATHROOM
+##
+
+sensor bathroom_last:
+  - platform: mqtt
+    name: bathroom_last
+    state_topic: 'presence/bathroom'
+    value_template: '{% if value_json is defined %} {{ value_json.class }} {% else %} "nothing" {% endif %}'
+
+sensor bathroom_what:
+  - platform: mqtt
+    name: bathroom_what
+    expire_after: 30
+    state_topic: 'presence/bathroom'
+    value_template: '{% if value_json is defined %} {{ value_json.class }} {% else %} "nothing" {% endif %}'
+
+sensor bathroom_who:
+  - platform: mqtt
+    name: bathroom_who
+    state_topic: 'presence/bathroom'
+    value_template: '{% if value_json is defined %} {{ value_json.model }} {% else %} "nobody" {% endif %}'
+
+sensor bathroom_why:
+  - platform: mqtt
+    name: bathroom_why
+    state_topic: 'presence/bathroom'
+    value_template: '{% if value_json is defined %} {{ value_json.score }} {% else %} 0.0 {% endif %}'
+
+sensor bathroom_date:
+  - platform: mqtt
+    name: bathroom_date
+    state_topic: 'presence/bathroom'
+    value_template: '{% if value_json is defined %} {{ value_json.date|int }} {% else %} -1 {% endif %}'
+
+sensor bathroom_size:
+  - platform: mqtt
+    name: bathroom_size
+    state_topic: 'presence/bathroom'
+    value_template: '{% if value_json is defined %} {{ value_json.size|int }} {% else %} -1 {% endif %}'
+
+# CAMERA (JPEG)
+
+camera bathroom_image:
+  - platform: mqtt
+    name: bathroom_image
+    topic: 'image/bathroom'
+
+camera bathroom_image_composed:
+  - platform: mqtt
+    name: bathroom_image_composed
+    topic: 'image-composed/bathroom'
+
+camera bathroom_image_annotated:
+  - platform: mqtt
+    name: bathroom_image_annotated
+    topic: 'image-annotated/bathroom'
+
+camera bathroom_image_cropped:
+  - platform: mqtt
+    name: bathroom_image_cropped
+    topic: 'image-cropped/bathroom'
+
+camera bathroom_image_composite:
+  - platform: mqtt
+    name: bathroom_image_composite
+    topic: 'image-composite/bathroom'
+
+camera bathroom_image_animated:
+  - platform: mqtt
+    name: bathroom_image_animated
+    topic: 'image-animated/bathroom'
+
+##
+## ROAD
+##
+
+sensor road_last:
+  - platform: mqtt
+    name: road_last
+    state_topic: 'presence/road'
+    value_template: '{% if value_json is defined %} {{ value_json.class }} {% else %} "nothing" {% endif %}'
+
+sensor road_what:
+  - platform: mqtt
+    name: road_what
+    expire_after: 30
+    state_topic: 'presence/road'
+    value_template: '{% if value_json is defined %} {{ value_json.class }} {% else %} "nothing" {% endif %}'
+
+sensor road_who:
+  - platform: mqtt
+    name: road_who
+    state_topic: 'presence/road'
+    value_template: '{% if value_json is defined %} {{ value_json.model }} {% else %} "nobody" {% endif %}'
+
+sensor road_why:
+  - platform: mqtt
+    name: road_why
+    state_topic: 'presence/road'
+    value_template: '{% if value_json is defined %} {{ value_json.score }} {% else %} 0.0 {% endif %}'
+
+sensor road_date:
+  - platform: mqtt
+    name: road_date
+    state_topic: 'presence/road'
+    value_template: '{% if value_json is defined %} {{ value_json.date|int }} {% else %} -1 {% endif %}'
+
+sensor road_size:
+  - platform: mqtt
+    name: road_size
+    state_topic: 'presence/road'
+    value_template: '{% if value_json is defined %} {{ value_json.size|int }} {% else %} -1 {% endif %}'
+
+# CAMERA (JPEG)
+
+camera road_image:
+  - platform: mqtt
+    name: road_image
+    topic: 'image/road'
+
+camera road_image_composed:
+  - platform: mqtt
+    name: road_image_composed
+    topic: 'image-composed/road'
+
+camera road_image_annotated:
+  - platform: mqtt
+    name: road_image_annotated
+    topic: 'image-annotated/road'
+
+camera road_image_cropped:
+  - platform: mqtt
+    name: road_image_cropped
+    topic: 'image-cropped/road'
+
+camera road_image_composite:
+  - platform: mqtt
+    name: road_image_composite
+    topic: 'image-composite/road'
+
+camera road_image_animated:
+  - platform: mqtt
+    name: road_image_animated
+    topic: 'image-animated/road'
+
+##
+## gate
+##
+
+sensor gate_last:
+  - platform: mqtt
+    name: gate_last
+    state_topic: 'presence/gate'
+    value_template: '{% if value_json is defined %} {{ value_json.class }} {% else %} "nothing" {% endif %}'
+
+sensor gate_what:
+  - platform: mqtt
+    name: gate_what
+    expire_after: 30
+    state_topic: 'presence/gate'
+    value_template: '{% if value_json is defined %} {{ value_json.class }} {% else %} "nothing" {% endif %}'
+
+sensor gate_who:
+  - platform: mqtt
+    name: gate_who
+    state_topic: 'presence/gate'
+    value_template: '{% if value_json is defined %} {{ value_json.model }} {% else %} "nobody" {% endif %}'
+
+sensor gate_why:
+  - platform: mqtt
+    name: gate_why
+    state_topic: 'presence/gate'
+    value_template: '{% if value_json is defined %} {{ value_json.score }} {% else %} 0.0 {% endif %}'
+
+sensor gate_date:
+  - platform: mqtt
+    name: gate_date
+    state_topic: 'presence/gate'
+    value_template: '{% if value_json is defined %} {{ value_json.date|int }} {% else %} -1 {% endif %}'
+
+sensor gate_size:
+  - platform: mqtt
+    name: gate_size
+    state_topic: 'presence/gate'
+    value_template: '{% if value_json is defined %} {{ value_json.size|int }} {% else %} -1 {% endif %}'
+
+# CAMERA (JPEG)
+
+camera gate_image:
+  - platform: mqtt
+    name: gate_image
+    topic: 'image/gate'
+
+camera gate_image_composed:
+  - platform: mqtt
+    name: gate_image_composed
+    topic: 'image-composed/gate'
+
+camera gate_image_annotated:
+  - platform: mqtt
+    name: gate_image_annotated
+    topic: 'image-annotated/gate'
+
+camera gate_image_cropped:
+  - platform: mqtt
+    name: gate_image_cropped
+    topic: 'image-cropped/gate'
+
+camera gate_image_composite:
+  - platform: mqtt
+    name: gate_image_composite
+    topic: 'image-composite/gate'
+
+camera gate_image_animated:
+  - platform: mqtt
+    name: gate_image_animated
+    topic: 'image-animated/gate'
+
+##
+## poolhouse
+##
+
+sensor poolhouse_last:
+  - platform: mqtt
+    name: poolhouse_last
+    state_topic: 'presence/poolhouse'
+    value_template: '{% if value_json is defined %} {{ value_json.class }} {% else %} "nothing" {% endif %}'
+
+sensor poolhouse_what:
+  - platform: mqtt
+    name: poolhouse_what
+    expire_after: 30
+    state_topic: 'presence/poolhouse'
+    value_template: '{% if value_json is defined %} {{ value_json.class }} {% else %} "nothing" {% endif %}'
+
+sensor poolhouse_who:
+  - platform: mqtt
+    name: poolhouse_who
+    state_topic: 'presence/poolhouse'
+    value_template: '{% if value_json is defined %} {{ value_json.model }} {% else %} "nobody" {% endif %}'
+
+sensor poolhouse_why:
+  - platform: mqtt
+    name: poolhouse_why
+    state_topic: 'presence/poolhouse'
+    value_template: '{% if value_json is defined %} {{ value_json.score }} {% else %} 0.0 {% endif %}'
+
+sensor poolhouse_date:
+  - platform: mqtt
+    name: poolhouse_date
+    state_topic: 'presence/poolhouse'
+    value_template: '{% if value_json is defined %} {{ value_json.date|int }} {% else %} -1 {% endif %}'
+
+sensor poolhouse_size:
+  - platform: mqtt
+    name: poolhouse_size
+    state_topic: 'presence/poolhouse'
+    value_template: '{% if value_json is defined %} {{ value_json.size|int }} {% else %} -1 {% endif %}'
+
+# CAMERA (JPEG)
+
+camera poolhouse_image:
+  - platform: mqtt
+    name: poolhouse_image
+    topic: 'image/poolhouse'
+
+camera poolhouse_image_composed:
+  - platform: mqtt
+    name: poolhouse_image_composed
+    topic: 'image-composed/poolhouse'
+
+camera poolhouse_image_annotated:
+  - platform: mqtt
+    name: poolhouse_image_annotated
+    topic: 'image-annotated/poolhouse'
+
+camera poolhouse_image_cropped:
+  - platform: mqtt
+    name: poolhouse_image_cropped
+    topic: 'image-cropped/poolhouse'
+
+camera poolhouse_image_composite:
+  - platform: mqtt
+    name: poolhouse_image_composite
+    topic: 'image-composite/poolhouse'
+
+camera poolhouse_image_animated:
+  - platform: mqtt
+    name: poolhouse_image_animated
+    topic: 'image-animated/poolhouse'
+
+##
+## DETERMINISTIC INDICATOR OF CLASSIFIER FAILURE (100%)
+##
+
+binary_sensor classifier_wrong:
+  platform: template
+  sensors:
+    kitchen_wrong:
+      entity_id:
+        - sensor.kitchen_what
+      value_template: >
+        {{ ( is_state('binary_sensor.home_david','off') and is_state('sensor.kitchen_what','david') ) or
+           ( is_state('binary_sensor.home_keli','off') and is_state('sensor.kitchen_what','keli') ) or
+           ( is_state('binary_sensor.home_hali','off') and is_state('sensor.kitchen_what','hali') ) or
+           ( is_state('binary_sensor.home_ian','off') and is_state('sensor.kitchen_what','ian') ) or
+           ( is_state('binary_sensor.home_riley','off') and is_state('sensor.kitchen_what','riley') ) or
+           ( is_state('binary_sensor.home_ellen','off') and is_state('sensor.kitchen_what','ellen') ) }}
+    bathroom_wrong:
+      entity_id:
+        - sensor.bathroom_what
+      value_template: >
+        {{ ( is_state('binary_sensor.home_david','off') and is_state('sensor.bathroom_what','david') ) or
+           ( is_state('binary_sensor.home_keli','off') and is_state('sensor.bathroom_what','keli') ) or
+           ( is_state('binary_sensor.home_hali','off') and is_state('sensor.bathroom_what','hali') ) or
+           ( is_state('binary_sensor.home_ian','off') and is_state('sensor.bathroom_what','ian') ) or
+           ( is_state('binary_sensor.home_riley','off') and is_state('sensor.bathroom_what','riley') ) or
+           ( is_state('binary_sensor.home_ellen','off') and is_state('sensor.bathroom_what','ellen') ) }}
+    frontdoor_wrong:
+      entity_id:
+        - sensor.frontdoor_what
+      value_template: >
+        {{ ( is_state('binary_sensor.home_david','off') and is_state('sensor.frontdoor_what','david') ) or
+           ( is_state('binary_sensor.home_keli','off') and is_state('sensor.frontdoor_what','keli') ) or
+           ( is_state('binary_sensor.home_hali','off') and is_state('sensor.frontdoor_what','hali') ) or
+           ( is_state('binary_sensor.home_ian','off') and is_state('sensor.frontdoor_what','ian') ) or
+           ( is_state('binary_sensor.home_riley','off') and is_state('sensor.frontdoor_what','riley') ) or
+           ( is_state('binary_sensor.home_ellen','off') and is_state('sensor.frontdoor_what','ellen') ) }}
+    road_wrong:
+      entity_id:
+        - sensor.road_what
+      value_template: >
+        {{ is_state('binary_sensor.home_david','on') and is_state('sensor.road_what','martin_c70') }}
+    gate_wrong:
+      entity_id:
+        - sensor.gate_what
+      value_template: >
+        {{ is_state('binary_sensor.home_david','on') and is_state('sensor.gate_what','martin_c70') }}
+    poolhouse_wrong:
+      entity_id:
+        - sensor.poolhouse_what
+      value_template: >
+        {{ is_state('binary_sensor.kitchen_david','on') and is_state('sensor.poolhouse_what','david') }}
+
+
+##
+## FRONTDOOR
+##
+
+sensor frontdoor_last:
+  - platform: mqtt
+    name: frontdoor_last
+    state_topic: 'presence/frontdoor'
+    value_template: '{% if value_json is defined %} {{ value_json.class }} {% else %} "nothing" {% endif %}'
+
+sensor frontdoor_what:
+  - platform: mqtt
+    name: frontdoor_what
+    expire_after: 30
+    state_topic: 'presence/frontdoor'
+    value_template: '{% if value_json is defined %} {{ value_json.class }} {% else %} "nothing" {% endif %}'
+
+sensor frontdoor_who:
+  - platform: mqtt
+    name: frontdoor_who
+    state_topic: 'presence/frontdoor'
+    value_template: '{% if value_json is defined %} {{ value_json.model }} {% else %} "nobody" {% endif %}'
+
+sensor frontdoor_why:
+  - platform: mqtt
+    name: frontdoor_why
+    state_topic: 'presence/frontdoor'
+    value_template: '{% if value_json is defined %} {{ value_json.score }} {% else %} 0.0 {% endif %}'
+
+sensor frontdoor_date:
+  - platform: mqtt
+    name: frontdoor_date
+    state_topic: 'presence/frontdoor'
+    value_template: '{% if value_json is defined %} {{ value_json.date|int }} {% else %} -1 {% endif %}'
+
+sensor frontdoor_size:
+  - platform: mqtt
+    name: frontdoor_size
+    state_topic: 'presence/frontdoor'
+    value_template: '{% if value_json is defined %} {{ value_json.size|int }} {% else %} -1 {% endif %}'
+
+# CAMERA (JPEG)
+
+camera frontdoor_image:
+  - platform: mqtt
+    name: frontdoor_image
+    topic: 'image/frontdoor'
+
+camera frontdoor_image_composed:
+  - platform: mqtt
+    name: frontdoor_image_composed
+    topic: 'image-composed/frontdoor'
+
+camera frontdoor_image_annotated:
+  - platform: mqtt
+    name: frontdoor_image_annotated
+    topic: 'image-annotated/frontdoor'
+
+camera frontdoor_image_cropped:
+  - platform: mqtt
+    name: frontdoor_image_cropped
+    topic: 'image-cropped/frontdoor'
+
+camera frontdoor_image_composite:
+  - platform: mqtt
+    name: frontdoor_image_composite
+    topic: 'image-composite/frontdoor'
+
+camera frontdoor_image_animated:
+  - platform: mqtt
+    name: frontdoor_image_animated
+    topic: 'image-animated/frontdoor'
+
+## locations
+
+sensor aah_location_ago_template:
+  platform: template
+  sensors:
+    last_ago:
+      entity_id:
+        - sensor.last_date
+        - sun.sun
+      unit_of_measurement: seconds
+      value_template: '{{ (now().timestamp()|int) - (states.sensor.last_date.state|int) }}'
+      icon_template: '{% if (states.sensor.last_ago|int) > 300 %} mdi:timer-off {% else %} mdi:timer {% endif %}'
+    kitchen_ago:
+      entity_id: 
+        - sensor.kitchen_date
+        - sun.sun
+      unit_of_measurement: seconds
+      value_template: '{{ (now().timestamp()|int) - (states.sensor.kitchen_date.state|int) }}'
+      icon_template: '{%- if (states.sensor.kitchen_ago.state|int) > 300 -%} mdi:timer-off {%- else -%} mdi:timer {%- endif -%}'
+    bathroom_ago:
+      entity_id: 
+        - sensor.bathroom_date
+        - sun.sun
+      unit_of_measurement: seconds
+      value_template: '{{ (now().timestamp()|int) - (states.sensor.bathroom_date.state|int) }}'
+      icon_template: '{%- if (states.sensor.bathroom_ago.state|int) > 300 -%} mdi:timer-off {%- else -%} mdi:timer {%- endif -%}'
+    frontdoor_ago:
+      entity_id: 
+        - sensor.frontdoor_date
+        - sun.sun
+      unit_of_measurement: seconds
+      value_template: '{{ (now().timestamp()|int) - (states.sensor.frontdoor_date.state|int) }}'
+      icon_template: '{%- if (states.sensor.frontdoor_ago.state|int) > 300 -%} mdi:timer-off {%- else -%} mdi:timer {%- endif -%}'
+    road_ago:
+      entity_id: 
+        - sensor.road_date
+        - sun.sun
+      unit_of_measurement: seconds
+      value_template: '{{ (now().timestamp()|int) - (states.sensor.road_date.state|int) }}'
+      icon_template: '{%- if (states.sensor.road_ago.state|int) > 300 -%} mdi:timer-off {%- else -%} mdi:timer {%- endif -%}'
+    gate_ago:
+      entity_id: 
+        - sensor.gate_date
+        - sun.sun
+      unit_of_measurement: seconds
+      value_template: '{{ (now().timestamp()|int) - (states.sensor.gate_date.state|int) }}'
+      icon_template: '{%- if (states.sensor.gate_ago.state|int) > 300 -%} mdi:timer-off {%- else -%} mdi:timer {%- endif -%}'
+    poolhouse_ago:
+      entity_id: 
+        - sensor.poolhouse_date
+        - sun.sun
+      unit_of_measurement: seconds
+      value_template: '{{ (now().timestamp()|int) - (states.sensor.poolhouse_date.state|int) }}'
+      icon_template: '{%- if (states.sensor.poolhouse_ago.state|int) > 300 -%} mdi:timer-off {%- else -%} mdi:timer {%- endif -%}'
+    interior_ago:
+      entity_id:
+        - sensor.kitchen_ago
+        - sensor.bathroom_ago
+        - sensor.frontdoor_ago
+        - sensor.poolhouse_ago
+      unit_of_measurement: seconds
+      value_template: >
+        {{ ( states('sensor.kitchen_ago')|int, states('sensor.bathroom_ago')|int, states('sensor.frontdoor_ago')|int ) | list | min }}
+    exterior_ago:
+      entity_id: 
+        - sensor.road_ago
+        - sensor.gate_ago
+      unit_of_measurement: seconds
+      value_template: >
+        {{ ( states('sensor.road_ago')|int,states('sensor.gate_ago')|int) | list | min }}
+    kitchen_when:
+      entity_id: sensor.kitchen_date
+      value_template: '{{ (states.sensor.kitchen_date.state|int) | timestamp_custom("%a %b %d @ %I:%M %p") }}'
+      icon_template: '{%- if ((states.sensor.kitchen_date.state|int) | timestamp_custom("%p")) == "PM" -%} mdi:weather-night {%- else -%} mdi:weather-sunny {%- endif -%}'
+    bathroom_when:
+      entity_id: sensor.bathroom_date
+      value_template: '{{ (states.sensor.bathroom_date.state|int) | timestamp_custom("%a %b %d @ %I:%M %p") }}'
+      icon_template: '{%- if ((states.sensor.bathroom_date.state|int) | timestamp_custom("%p")) == "PM" -%} mdi:weather-night {%- else -%} mdi:weather-sunny {%- endif -%}'
+    frontdoor_when:
+      entity_id: sensor.frontdoor_date
+      value_template: '{{ (states.sensor.frontdoor_date.state|int) | timestamp_custom("%a %b %d @ %I:%M %p") }}'
+      icon_template: '{%- if ((states.sensor.frontdoor_date.state|int) | timestamp_custom("%p")) == "PM" -%} mdi:weather-night {%- else -%} mdi:weather-sunny {%- endif -%}'
+    road_when:
+      entity_id: sensor.road_date
+      value_template: '{{ (states.sensor.road_date.state|int) | timestamp_custom("%a %b %d @ %I:%M %p") }}'
+      icon_template: '{%- if ((states.sensor.road_date.state|int) | timestamp_custom("%p")) == "PM" -%} mdi:weather-night {%- else -%} mdi:weather-sunny {%- endif -%}'
+    gate_when:
+      entity_id: sensor.gate_date
+      value_template: '{{ (states.sensor.gate_date.state|int) | timestamp_custom("%a %b %d @ %I:%M %p") }}'
+      icon_template: '{%- if ((states.sensor.gate_date.state|int) | timestamp_custom("%p")) == "PM" -%} mdi:weather-night {%- else -%} mdi:weather-sunny {%- endif -%}'
+    poolhouse_when:
+      entity_id: sensor.poolhouse_date
+      value_template: '{{ (states.sensor.poolhouse_date.state|int) | timestamp_custom("%a %b %d @ %I:%M %p") }}'
+      icon_template: '{%- if ((states.sensor.poolhouse_date.state|int) | timestamp_custom("%p")) == "PM" -%} mdi:weather-night {%- else -%} mdi:weather-sunny {%- endif -%}'
+
+##
+## FAMILY
+##
+
+binary_sensor family_home:
+  platform: template
+  sensors:
+    kitchen_family:
+      entity_id:
+        - sensor.kitchen_what
+      value_template: >
+        {{ (states('binary_sensor.kitchen_david') and states('binary_sensor.home_david'))
+           or (states('binary_sensor.kitchen_keli') and states('binary_sensor.home_keli'))
+           or (states('binary_sensor.kitchen_hali') and states('binary_sensor.home_hali'))
+           or (states('binary_sensor.kitchen_ian') and states('binary_sensor.home_ian'))
+           or (states('binary_sensor.kitchen_riley') and states('binary_sensor.home_riley'))
+           or (states('binary_sensor.kitchen_ellen') and states('binary_sensor.home_ellen'))
+           and states('sensor.kitchen_ago')|int < 30 }}
+    bathroom_family:
+      entity_id:
+        - sensor.bathroom_what
+      value_template: >
+        {{ (states('binary_sensor.bathroom_david') and states('binary_sensor.home_david'))
+           or (states('binary_sensor.bathroom_keli') and states('binary_sensor.home_keli'))
+           or (states('binary_sensor.bathroom_hali') and states('binary_sensor.home_hali'))
+           or (states('binary_sensor.bathroom_ian') and states('binary_sensor.home_ian'))
+           or (states('binary_sensor.bathroom_riley') and states('binary_sensor.home_riley'))
+           or (states('binary_sensor.bathroom_ellen') and states('binary_sensor.home_ellen'))
+           and states('sensor.bathroom_ago')|int < 30 }}
+    frontdoor_family:
+      entity_id:
+        - sensor.frontdoor_what
+      value_template: >
+        {{ (states('binary_sensor.frontdoor_david') and states('binary_sensor.home_david'))
+           or (states('binary_sensor.frontdoor_keli') and states('binary_sensor.home_keli'))
+           or (states('binary_sensor.frontdoor_hali') and states('binary_sensor.home_hali'))
+           or (states('binary_sensor.frontdoor_ian') and states('binary_sensor.home_ian'))
+           or (states('binary_sensor.frontdoor_riley') and states('binary_sensor.home_riley'))
+           or (states('binary_sensor.frontdoor_ellen') and states('binary_sensor.home_ellen'))
+           and states('sensor.frontdoor_ago')|int < 30 }}
+
+#
+# ROAD
+#
+
+binary_sensor road_what:
+  platform: template
+  sensors:
+    road_martin:
+      entity_id:
+        - sensor.road_what
+      value_template: >
+        {{ is_state('sensor.road_what','martin_c70') or
+           is_state('sensor.road_what','martin_c30') or
+           is_state('sensor.road_what','martin_sprinter') or
+           is_state('sensor.road_what','martin_suburban') or
+           is_state('sensor.road_what','martin_xc90') or
+           is_state('sensor.road_what','martin_rtv1100' ) }}
+    road_fletcher:
+      entity_id:
+        - sensor.road_what
+      value_template: >
+        {{ is_state('sensor.road_what','fletcher_fordflex') or
+           is_state('sensor.road_what','fletcher_hybrid') or
+           is_state('sensor.road_what','fletcher_pickup') }}
+    road_other:
+      entity_id:
+        - sensor.road_what
+      value_template: >
+        {{ is_state('binary_sensor.road_martin','off') and is_state('binary_sensor.fletcher_road','off') }}
+
+sensor road_other_count:
+  - platform: history_stats
+    name: road_other_count
+    entity_id: binary_sensor.other_road
+    state: 'on'
+    type: count
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor road_other_ratio:
+  - platform: history_stats
+    name: road_other_ratio
+    entity_id: binary_sensor.other_road
+    state: 'on'
+    type: ratio
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor road_other_time:
+  - platform: history_stats
+    name: road_other_time
+    entity_id: binary_sensor.other_road
+    state: 'on'
+    type: time
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor road_martin_count:
+  - platform: history_stats
+    name: road_martin_count
+    entity_id: binary_sensor.road_martin
+    state: 'on'
+    type: count
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor road_martin_ratio:
+  - platform: history_stats
+    name: road_martin_ratio
+    entity_id: binary_sensor.road_martin
+    state: 'on'
+    type: ratio
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor road_martin_time:
+  - platform: history_stats
+    name: road_martin_time
+    entity_id: binary_sensor.road_martin
+    state: 'on'
+    type: time
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor road_fletcher_count:
+  - platform: history_stats
+    name: road_fletcher_count
+    entity_id: binary_sensor.fletcher_road
+    state: 'on'
+    type: count
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor road_fletcher_ratio:
+  - platform: history_stats
+    name: road_fletcher_ratio
+    entity_id: binary_sensor.fletcher_road
+    state: 'on'
+    type: ratio
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor road_fletcher_time:
+  - platform: history_stats
+    name: road_fletcher_time
+    entity_id: binary_sensor.fletcher_road
+    state: 'on'
+    type: time
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+#
+# INTERIOR GATE
+#
+
+binary_sensor what_gate:
+  platform: template
+  sensors:
+    gate_martin:
+      entity_id:
+        - sensor.gate_what
+      value_template: >
+        {{ is_state('sensor.gate_what','martin_c70') or
+           is_state('sensor.gate_what','martin_c30') or
+           is_state('sensor.gate_what','martin_sprinter') or
+           is_state('sensor.gate_what','martin_suburban') or
+           is_state('sensor.gate_what','martin_xc90') or
+           is_state('sensor.gate_what','martin_rtv1100' ) }}
+    gate_other:
+      entity_id:
+        - sensor.gate_what
+      value_template: >
+        {{ is_state('binary_sensor.gate_martin','off') }}
+
+sensor gate_other_count:
+  - platform: history_stats
+    name: gate_other_count
+    entity_id: binary_sensor.gate_other
+    state: 'on'
+    type: count
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor gate_other_ratio:
+  - platform: history_stats
+    name: gate_other_ratio
+    entity_id: binary_sensor.gate_other
+    state: 'on'
+    type: ratio
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor gate_other_time:
+  - platform: history_stats
+    name: gate_other_time
+    entity_id: binary_sensor.gate_other
+    state: 'on'
+    type: time
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor gate_martin_count:
+  - platform: history_stats
+    name: gate_martin_count
+    entity_id: binary_sensor.gate_martin
+    state: 'on'
+    type: count
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor gate_martin_ratio:
+  - platform: history_stats
+    name: gate_martin_ratio
+    entity_id: binary_sensor.gate_martin
+    state: 'on'
+    type: ratio
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor gate_martin_time:
+  - platform: history_stats
+    name: gate_martin_time
+    entity_id: binary_sensor.gate_martin
+    state: 'on'
+    type: time
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+##
+## DAVID
+##
+
+binary_sensor motion_david:
+  platform: template
+  sensors:
+    interior_david:
+      entity_id: 
+        - sensor.interior_what
+      value_template: >
+        {{ 'david' in states('sensor.interior_what') }}
+    bathroom_david:
+      entity_id: 
+        - sensor.bathroom_what
+      value_template: >
+        {{ is_state('sensor.bathroom_what','david') }}
+    frontdoor_david:
+      entity_id: 
+        - sensor.frontdoor_what
+      value_template: >
+        {{ is_state('sensor.frontdoor_what','david') }}
+    kitchen_david:
+      entity_id: 
+        - sensor.kitchen_what
+      value_template: >
+        {{ is_state('sensor.kitchen_what','david') }}
+
+sensor kitchen_david_time:
+  - platform: history_stats
+    name: kitchen_david_time
+    entity_id: binary_sensor.kitchen_david
+    state: 'on'
+    type: time
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor bathroom_david_time:
+  - platform: history_stats
+    name: bathroom_david_time
+    entity_id: binary_sensor.bathroom_david
+    state: 'on'
+    type: time
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor frontdoor_david_time:
+  - platform: history_stats
+    name: frontdoor_david_time
+    entity_id: binary_sensor.frontdoor_david
+    state: 'on'
+    type: time
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor kitchen_david_count:
+  - platform: history_stats
+    name: kitchen_david_count
+    entity_id: binary_sensor.kitchen_david
+    state: 'on'
+    type: count
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor bathroom_david_count:
+  - platform: history_stats
+    name: bathroom_david_count
+    entity_id: binary_sensor.bathroom_david
+    state: 'on'
+    type: count
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor frontdoor_david_count:
+  - platform: history_stats
+    name: frontdoor_david_count
+    entity_id: binary_sensor.frontdoor_david
+    state: 'on'
+    type: count
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor kitchen_david_ratio:
+  - platform: history_stats
+    name: kitchen_david_ratio
+    entity_id: binary_sensor.kitchen_david
+    state: 'on'
+    type: ratio
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor bathroom_david_ratio:
+  - platform: history_stats
+    name: bathroom_david_ratio
+    entity_id: binary_sensor.bathroom_david
+    state: 'on'
+    type: ratio
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor frontdoor_david_ratio:
+  - platform: history_stats
+    name: frontdoor_david_ratio
+    entity_id: binary_sensor.frontdoor_david
+    state: 'on'
+    type: ratio
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+##
+## KELI
+##
+
+binary_sensor motion_keli:
+  platform: template
+  sensors:
+    interior_keli:
+      entity_id: 
+        - sensor.interior_what
+      value_template: >
+        {{ 'keli' in states('sensor.interior_what') }}
+    bathroom_keli:
+      entity_id: 
+        - sensor.bathroom_what
+      value_template: >
+        {{ is_state('sensor.bathroom_what','keli') }}
+    frontdoor_keli:
+      entity_id: 
+        - sensor.frontdoor_what
+      value_template: >
+        {{ is_state('sensor.frontdoor_what','keli') }}
+    kitchen_keli:
+      entity_id: 
+        - sensor.kitchen_what
+      value_template: >
+        {{ is_state('sensor.kitchen_what','keli') }}
+
+sensor kitchen_keli_time:
+  - platform: history_stats
+    name: kitchen_keli_time
+    entity_id: binary_sensor.kitchen_keli
+    state: 'on'
+    type: time
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor bathroom_keli_time:
+  - platform: history_stats
+    name: bathroom_keli_time
+    entity_id: binary_sensor.bathroom_keli
+    state: 'on'
+    type: time
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor frontdoor_keli_time:
+  - platform: history_stats
+    name: frontdoor_keli_time
+    entity_id: binary_sensor.frontdoor_keli
+    state: 'on'
+    type: time
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor kitchen_keli_count:
+  - platform: history_stats
+    name: kitchen_keli_count
+    entity_id: binary_sensor.kitchen_keli
+    state: 'on'
+    type: count
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor bathroom_keli_count:
+  - platform: history_stats
+    name: bathroom_keli_count
+    entity_id: binary_sensor.bathroom_keli
+    state: 'on'
+    type: count
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor frontdoor_keli_count:
+  - platform: history_stats
+    name: frontdoor_keli_count
+    entity_id: binary_sensor.frontdoor_keli
+    state: 'on'
+    type: count
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor kitchen_keli_ratio:
+  - platform: history_stats
+    name: kitchen_keli_ratio
+    entity_id: binary_sensor.kitchen_keli
+    state: 'on'
+    type: ratio
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor bathroom_keli_ratio:
+  - platform: history_stats
+    name: bathroom_keli_ratio
+    entity_id: binary_sensor.bathroom_keli
+    state: 'on'
+    type: ratio
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor frontdoor_keli_ratio:
+  - platform: history_stats
+    name: frontdoor_keli_ratio
+    entity_id: binary_sensor.frontdoor_keli
+    state: 'on'
+    type: ratio
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+##
+## HALI
+##
+
+binary_sensor motion_hali:
+  platform: template
+  sensors:
+    interior_hali:
+      entity_id: 
+        - sensor.interior_what
+      value_template: >
+        {{ 'hali' in states('sensor.interior_what') }}
+    bathroom_hali:
+      entity_id: 
+        - sensor.bathroom_what
+      value_template: >
+        {{ is_state('sensor.bathroom_what','hali') }}
+    frontdoor_hali:
+      entity_id: 
+        - sensor.frontdoor_what
+      value_template: >
+        {{ is_state('sensor.frontdoor_what','hali') }}
+    kitchen_hali:
+      entity_id: 
+        - sensor.kitchen_what
+      value_template: >
+        {{ is_state('sensor.kitchen_what','hali') }}
+
+sensor kitchen_hali_time:
+  - platform: history_stats
+    name: kitchen_hali_time
+    entity_id: binary_sensor.kitchen_hali
+    state: 'on'
+    type: time
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor bathroom_hali_time:
+  - platform: history_stats
+    name: bathroom_hali_time
+    entity_id: binary_sensor.bathroom_hali
+    state: 'on'
+    type: time
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor frontdoor_hali_time:
+  - platform: history_stats
+    name: frontdoor_hali_time
+    entity_id: binary_sensor.frontdoor_hali
+    state: 'on'
+    type: time
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor kitchen_hali_count:
+  - platform: history_stats
+    name: kitchen_hali_count
+    entity_id: binary_sensor.kitchen_hali
+    state: 'on'
+    type: count
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor bathroom_hali_count:
+  - platform: history_stats
+    name: bathroom_hali_count
+    entity_id: binary_sensor.bathroom_hali
+    state: 'on'
+    type: count
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor frontdoor_hali_count:
+  - platform: history_stats
+    name: frontdoor_hali_count
+    entity_id: binary_sensor.frontdoor_hali
+    state: 'on'
+    type: count
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor kitchen_hali_ratio:
+  - platform: history_stats
+    name: kitchen_hali_ratio
+    entity_id: binary_sensor.kitchen_hali
+    state: 'on'
+    type: ratio
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor bathroom_hali_ratio:
+  - platform: history_stats
+    name: bathroom_hali_ratio
+    entity_id: binary_sensor.bathroom_hali
+    state: 'on'
+    type: ratio
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor frontdoor_hali_ratio:
+  - platform: history_stats
+    name: frontdoor_hali_ratio
+    entity_id: binary_sensor.frontdoor_hali
+    state: 'on'
+    type: ratio
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+##
+## IAN
+##
+
+binary_sensor motion_ian:
+  platform: template
+  sensors:
+    interior_ian:
+      entity_id: 
+        - sensor.interior_what
+      value_template: >
+        {{ 'ian' in states('sensor.interior_what') }}
+    bathroom_ian:
+      entity_id: 
+        - sensor.bathroom_what
+      value_template: >
+        {{ is_state('sensor.bathroom_what','ian') }}
+    frontdoor_ian:
+      entity_id: 
+        - sensor.frontdoor_what
+      value_template: >
+        {{ is_state('sensor.frontdoor_what','ian') }}
+    kitchen_ian:
+      entity_id: 
+        - sensor.kitchen_what
+      value_template: >
+        {{ is_state('sensor.kitchen_what','ian') }}
+
+sensor kitchen_ian_time:
+  - platform: history_stats
+    name: kitchen_ian_time
+    entity_id: binary_sensor.kitchen_ian
+    state: 'on'
+    type: time
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor bathroom_ian_time:
+  - platform: history_stats
+    name: bathroom_ian_time
+    entity_id: binary_sensor.bathroom_ian
+    state: 'on'
+    type: time
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor frontdoor_ian_time:
+  - platform: history_stats
+    name: frontdoor_ian_time
+    entity_id: binary_sensor.frontdoor_ian
+    state: 'on'
+    type: time
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor kitchen_ian_count:
+  - platform: history_stats
+    name: kitchen_ian_count
+    entity_id: binary_sensor.kitchen_ian
+    state: 'on'
+    type: count
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor bathroom_ian_count:
+  - platform: history_stats
+    name: bathroom_ian_count
+    entity_id: binary_sensor.bathroom_ian
+    state: 'on'
+    type: count
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor frontdoor_ian_count:
+  - platform: history_stats
+    name: frontdoor_ian_count
+    entity_id: binary_sensor.frontdoor_ian
+    state: 'on'
+    type: count
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor kitchen_ian_ratio:
+  - platform: history_stats
+    name: kitchen_ian_ratio
+    entity_id: binary_sensor.kitchen_ian
+    state: 'on'
+    type: ratio
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor bathroom_ian_ratio:
+  - platform: history_stats
+    name: bathroom_ian_ratio
+    entity_id: binary_sensor.bathroom_ian
+    state: 'on'
+    type: ratio
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor frontdoor_ian_ratio:
+  - platform: history_stats
+    name: frontdoor_ian_ratio
+    entity_id: binary_sensor.frontdoor_ian
+    state: 'on'
+    type: ratio
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+##
+## RILEY
+##
+
+binary_sensor motion_riley:
+  platform: template
+  sensors:
+    interior_riley:
+      entity_id: 
+        - sensor.interior_what
+      value_template: >
+        {{ 'riley' in states('sensor.interior_what') }}
+    bathroom_riley:
+      entity_id: 
+        - sensor.bathroom_what
+      value_template: >
+        {{ is_state('sensor.bathroom_what','riley') }}
+    frontdoor_riley:
+      entity_id: 
+        - sensor.frontdoor_what
+      value_template: >
+        {{ is_state('sensor.frontdoor_what','riley') }}
+    kitchen_riley:
+      entity_id: 
+        - sensor.kitchen_what
+      value_template: >
+        {{ is_state('sensor.kitchen_what','riley') }}
+
+sensor kitchen_riley_time:
+  - platform: history_stats
+    name: kitchen_riley_time
+    entity_id: binary_sensor.kitchen_riley
+    state: 'on'
+    type: time
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor bathroom_riley_time:
+  - platform: history_stats
+    name: bathroom_riley_time
+    entity_id: binary_sensor.bathroom_riley
+    state: 'on'
+    type: time
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor frontdoor_riley_time:
+  - platform: history_stats
+    name: frontdoor_riley_time
+    entity_id: binary_sensor.frontdoor_riley
+    state: 'on'
+    type: time
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor kitchen_riley_count:
+  - platform: history_stats
+    name: kitchen_riley_count
+    entity_id: binary_sensor.kitchen_riley
+    state: 'on'
+    type: count
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor bathroom_riley_count:
+  - platform: history_stats
+    name: bathroom_riley_count
+    entity_id: binary_sensor.bathroom_riley
+    state: 'on'
+    type: count
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor frontdoor_riley_count:
+  - platform: history_stats
+    name: frontdoor_riley_count
+    entity_id: binary_sensor.frontdoor_riley
+    state: 'on'
+    type: count
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor kitchen_riley_ratio:
+  - platform: history_stats
+    name: kitchen_riley_ratio
+    entity_id: binary_sensor.kitchen_riley
+    state: 'on'
+    type: ratio
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor bathroom_riley_ratio:
+  - platform: history_stats
+    name: bathroom_riley_ratio
+    entity_id: binary_sensor.bathroom_riley
+    state: 'on'
+    type: ratio
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor frontdoor_riley_ratio:
+  - platform: history_stats
+    name: frontdoor_riley_ratio
+    entity_id: binary_sensor.frontdoor_riley
+    state: 'on'
+    type: ratio
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+##
+## ELLEN
+##
+
+binary_sensor motion_ellen:
+  platform: template
+  sensors:
+    interior_ellen:
+      entity_id: 
+        - sensor.interior_what
+      value_template: >
+        {{ 'ellen' in states('sensor.interior_what') }}
+    bathroom_ellen:
+      entity_id: 
+        - sensor.bathroom_what
+      value_template: >
+        {{ is_state('sensor.bathroom_what','ellen') }}
+    frontdoor_ellen:
+      entity_id: 
+        - sensor.frontdoor_what
+      value_template: >
+        {{ is_state('sensor.frontdoor_what','ellen') }}
+    kitchen_ellen:
+      entity_id: 
+        - sensor.kitchen_what
+      value_template: >
+        {{ is_state('sensor.kitchen_what','ellen') }}
+
+sensor kitchen_ellen_time:
+  - platform: history_stats
+    name: kitchen_ellen_time
+    entity_id: binary_sensor.kitchen_ellen
+    state: 'on'
+    type: time
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor bathroom_ellen_time:
+  - platform: history_stats
+    name: bathroom_ellen_time
+    entity_id: binary_sensor.bathroom_ellen
+    state: 'on'
+    type: time
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor frontdoor_ellen_time:
+  - platform: history_stats
+    name: frontdoor_ellen_time
+    entity_id: binary_sensor.frontdoor_ellen
+    state: 'on'
+    type: time
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor kitchen_ellen_count:
+  - platform: history_stats
+    name: kitchen_ellen_count
+    entity_id: binary_sensor.kitchen_ellen
+    state: 'on'
+    type: count
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor bathroom_ellen_count:
+  - platform: history_stats
+    name: bathroom_ellen_count
+    entity_id: binary_sensor.bathroom_ellen
+    state: 'on'
+    type: count
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor frontdoor_ellen_count:
+  - platform: history_stats
+    name: frontdoor_ellen_count
+    entity_id: binary_sensor.frontdoor_ellen
+    state: 'on'
+    type: count
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor kitchen_ellen_ratio:
+  - platform: history_stats
+    name: kitchen_ellen_ratio
+    entity_id: binary_sensor.kitchen_ellen
+    state: 'on'
+    type: ratio
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor bathroom_ellen_ratio:
+  - platform: history_stats
+    name: bathroom_ellen_ratio
+    entity_id: binary_sensor.bathroom_ellen
+    state: 'on'
+    type: ratio
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor frontdoor_ellen_ratio:
+  - platform: history_stats
+    name: frontdoor_ellen_ratio
+    entity_id: binary_sensor.frontdoor_ellen
+    state: 'on'
+    type: ratio
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+##
+## CORRECT RATIO
+##
+
+sensor kitchen_accuracy_ratio:
+  - platform: history_stats
+    name: kitchen_accuracy_ratio
+    entity_id: binary_sensor.kitchen_wrong
+    state: 'on'
+    type: ratio
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor bathroom_accuracy_ratio:
+  - platform: history_stats
+    name: bathroom_accuracy_ratio
+    entity_id: binary_sensor.bathroom_wrong
+    state: 'on'
+    type: ratio
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor frontdoor_accuracy_ratio:
+  - platform: history_stats
+    name: frontdoor_accuracy_ratio
+    entity_id: binary_sensor.frontdoor_wrong
+    state: 'on'
+    type: ratio
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor road_accuracy_ratio:
+  - platform: history_stats
+    name: road_accuracy_ratio
+    entity_id: binary_sensor.road_wrong
+    state: 'on'
+    type: ratio
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor gate_accuracy_ratio:
+  - platform: history_stats
+    name: gate_accuracy_ratio
+    entity_id: binary_sensor.gate_wrong
+    state: 'on'
+    type: ratio
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+##
+## LAST DETECTION
+##
+
+sensor interior_entity:
+  platform: template
+  sensors:
+    interior_last:
+      entity_id:
+        - sensor.bathroom_last
+        - sensor.kitchen_last
+        - sensor.frontdoor_last
+        - sensor.poolhouse_last
+      value_template: >
+        {{ states('sensor.bathroom_last'),states('sensor.kitchen_last'),states('sensor.frontdoor_last'),states('sensor.poolhouse_last') }}
+    interior_what:
+      entity_id:
+        - sensor.bathroom_what
+        - sensor.kitchen_what
+        - sensor.frontdoor_what
+        - sensor.poolhouse_what
+      value_template: >
+        {{ states('sensor.bathroom_what'),states('sensor.kitchen_what'),states('sensor.frontdoor_what'),states('sensor.poolhouse_what') }}
+    exterior_last:
+      entity_id:
+        - sensor.road_last
+        - sensor.gate_last
+      value_template: >
+        {{ states('sensor.road_last'),states('sensor.gate_last') }}
+    exterior_what:
+      entity_id:
+        - sensor.road_what
+        - sensor.gate_what
+      value_template: >
+        {{ states('sensor.road_what'),states('sensor.gate_what') }}
+
+
+##
+## location motion (YES/NO, LOCATIONs count, LOCATIONs time,
+##
+
+binary_sensor aah_motion_template:
+  platform: template
+  sensors:
+    kitchen_motion:
+      entity_id: 
+        - sensor.kitchen_ago
+      device_class: motion
+      value_template: >
+        {{  states('sensor.kitchen_ago')|int < 30 }}
+    bathroom_motion:
+      entity_id:
+        - sensor.bathroom_ago
+      device_class: motion
+      value_template: >
+        {{  states('sensor.bathroom_ago')|int < 30 }}
+    frontdoor_motion:
+      entity_id: 
+        - sensor.frontdoor_ago
+      device_class: motion
+      value_template: >
+        {{  states('sensor.frontdoor_ago')|int < 30 }}
+    road_motion:
+      entity_id: 
+        - sensor.road_ago
+      device_class: motion
+      value_template: >
+        {{  states('sensor.road_ago')|int < 30 }}
+    gate_motion:
+      entity_id: 
+        - sensor.gate_ago
+      device_class: motion
+      value_template: >
+        {{  states('sensor.gate_ago')|int < 30 }}
+    poolhouse_motion:
+      entity_id: 
+        - sensor.poolhouse_ago
+      device_class: motion
+      value_template: >
+        {{  states('sensor.poolhouse_ago')|int < 30 }}
+    interior_motion:
+      device_class: motion
+      entity_id:
+        - binary_sensor.kitchen_motion
+        - binary_sensor.bathroom_motion
+        - binary_sensor.frontdoor_motion
+        - binary_sensor.poolhouse_motion
+      value_template: >
+        {{ is_state('binary_sensor.kitchen_motion','on') or is_state('binary_sensor.bathroom_motion','on') or is_state('binary_sensor.frontdoor_motion','on') or is_state('binary_sensor.poolhouse_motion','on') }}
+    exterior_motion:
+      device_class: motion
+      entity_id: 
+        - binary_sensor.road_motion
+        - binary_sensor.gate_motion
+      value_template: >
+        {{ is_state('binary_sensor.road_motion','on') or is_state('binary_sensor.gate_motion','on') }}
+
+# RATIO
+
+sensor interior_motion_ratio:
+  - platform: history_stats
+    name: interior_motion_ratio
+    entity_id: binary_sensor.interior_motion
+    state: 'on'
+    type: ratio
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor exterior_motion_ratio:
+  - platform: history_stats
+    name: exterior_motion_ratio
+    entity_id: binary_sensor.exterior_motion
+    state: 'on'
+    type: ratio
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+# COUNT
+
+sensor kitchen_motion_count:
+  - platform: history_stats
+    name: kitchen_motion_count
+    entity_id: binary_sensor.kitchen_motion
+    state: 'on'
+    type: count
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor bathroom_motion_count:
+  - platform: history_stats
+    name: bathroom_motion_count
+    entity_id: binary_sensor.bathroom_motion
+    state: 'on'
+    type: count
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor frontdoor_motion_count:
+  - platform: history_stats
+    name: frontdoor_motion_count
+    entity_id: binary_sensor.frontdoor_motion
+    state: 'on'
+    type: count
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor road_motion_count:
+  - platform: history_stats
+    name: road_motion_count
+    entity_id: binary_sensor.road_motion
+    state: 'on'
+    type: count
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor gate_motion_count:
+  - platform: history_stats
+    name: gate_motion_count
+    entity_id: binary_sensor.gate_motion
+    state: 'on'
+    type: count
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor poolhouse_motion_count:
+  - platform: history_stats
+    name: poolhouse_motion_count
+    entity_id: binary_sensor.poolhouse_motion
+    state: 'on'
+    type: count
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+# TIME
+
+sensor kitchen_motion_time:
+  - platform: history_stats
+    name: kitchen_motion_time
+    entity_id: binary_sensor.kitchen_motion
+    state: 'on'
+    type: time
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor bathroom_motion_time:
+  - platform: history_stats
+    entity_id: binary_sensor.bathroom_motion
+    state: 'on'
+    type: time
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor frontdoor_motion_time:
+  - platform: history_stats
+    name: frontdoor_motion_time
+    entity_id: binary_sensor.frontdoor_motion
+    state: 'on'
+    type: time
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor road_motion_time:
+  - platform: history_stats
+    name: road_motion_time
+    entity_id: binary_sensor.road_motion
+    state: 'on'
+    type: time
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor gate_motion_time:
+  - platform: history_stats
+    name: gate_motion_time
+    entity_id: binary_sensor.gate_motion
+    state: 'on'
+    type: time
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+sensor poolhouse_motion_time:
+  - platform: history_stats
+    name: poolhouse_motion_time
+    entity_id: binary_sensor.poolhouse_motion
+    state: 'on'
+    type: time
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+#
+# DETERMINISTIC
+#
+
+binary_sensor probably_home:
+  platform: template
+  sensors:
+    home_david:
+      entity_id: 
+        - device_tracker.dcmsiphone7
+        - device_tracker.davids_iphone
+      value_template: >
+        {{ is_state('device_tracker.dcmsiphone7','home') or is_state('device_tracker.davids_iphone','home') }}
+    home_keli:
+      entity_id: 
+        - device_tracker.kelisiphone7
+        - device_tracker.kelis_iphone
+      value_template: >
+        {{ is_state('device_tracker.kelisiphone7','home') or is_state('device_tracker.kelis_iphone','home') }}
+    home_hali:
+      entity_id: 
+        - device_tracker.halisiphone
+      value_template: >
+        {{ is_state('device_tracker.halisiphone','home') }}
+    home_ian:
+      entity_id: 
+        - device_tracker.ianmartinsiphone
+      value_template: >
+        {{ is_state('device_tracker.ianmartinsiphone','home') }}
+    home_riley:
+      entity_id: 
+        - device_tracker.rileysiphone5
+        - device_tracker.rileys_iphone
+      value_template: >
+        {{ is_state('device_tracker.rileysiphone5','home') or is_state('device_tracker.rileys_iphone','home') }}
+    home_ellen:
+      entity_id: 
+        - device_tracker.ellensiphone5
+        - device_tracker.ellens_iphone
+      value_template: >
+        {{ is_state('device_tracker.ellensiphone5','home') or is_state('device_tracker.ellens_iphone','home') }}
+
+#
+# BAYESIAN
+#
+
+binary_sensor david_maybe_home:
+  - platform: bayesian
+    name: david_maybe_home
+    prior: 0.75
+    observations:
+      - entity_id: device_tracker.davids_iphone
+        prob_given_true: 0.9
+        prob_given_false: 0.1
+        platform: 'state'
+        to_state: 'home'
+      - entity_id: device_tracker.dcmsiphone7
+        prob_given_true: 0.8
+        prob_given_false: 0.2
+        platform: 'state'
+        to_state: 'home'
+
+binary_sensor keli_maybe_home:
+  - platform: bayesian
+    name: keli_maybe_home
+    prior: 0.75
+    observations:
+      - entity_id: device_tracker.kelis_iphone
+        prob_given_true: 0.9
+        prob_given_false: 0.1
+        platform: 'state'
+        to_state: 'home'
+      - entity_id: device_tracker.kelisiphone7
+        prob_given_true: 0.8
+        prob_given_false: 0.2
+        platform: 'state'
+        to_state: 'home'
+
+binary_sensor riley_maybe_home:
+  - platform: bayesian
+    name: riley_maybe_home
+    prior: 0.75
+    observations:
+      - entity_id: device_tracker.rileys_iphone
+        prob_given_true: 0.9
+        prob_given_false: 0.1
+        platform: 'state'
+        to_state: 'home'
+      - entity_id: device_tracker.rileysiphone5
+        prob_given_true: 0.8
+        prob_given_false: 0.2
+        platform: 'state'
+        to_state: 'home'
+
+binary_sensor ellen_maybe_home:
+  - platform: bayesian
+    name: ellen_maybe_home
+    prior: 0.75
+    observations:
+      - entity_id: device_tracker.ellens_iphone
+        prob_given_true: 0.9
+        prob_given_false: 0.1
+        platform: 'state'
+        to_state: 'home'
+      - entity_id: device_tracker.ellensiphone5
+        prob_given_true: 0.8
+        prob_given_false: 0.2
+        platform: 'state'
+        to_state: 'home'
+
+binary_sensor hali_maybe_home:
+  - platform: bayesian
+    name: hali_maybe_home
+    prior: 0.2
+    observations:
+      - entity_id: device_tracker.halisiphone
+        prob_given_true: 0.9
+        prob_given_false: 0.1
+        platform: 'state'
+        to_state: 'home'
+
+binary_sensor ian_maybe_home:
+  - platform: bayesian
+    name: ian_maybe_home
+    prior: 0.1
+    observations:
+      - entity_id: device_tracker.ianmartinsiphone
+        prob_given_true: 0.9
+        prob_given_false: 0.1
+        platform: 'state'
+        to_state: 'home'
+
+###
+### TRACK PEOPLE
+###
+
+sensor status_people_template:
+  platform: template
+  sensors:
+    status_david:
+      friendly_name: "David's status"
+      entity_id:
+        - group.devices_david
+      value_template: >
+       {% if states.group.devices_david is defined %}
+         {%- set e = closest(states.group.devices_david) -%}
+         {%- if e is defined -%} 
+           {%- set d = distance(e) -%}
+           {%- if e.source_type == 'gps' -%} 
+             {"device":{{ e.attributes.friendly_name|tojson }},"location":{{e.state|tojson}},"online":{{(e.attributes.device_status == 'online')|tojson}},"feet":{{d*5280.0}}}
+           {%- else -%}
+             {"device":{{ e.attributes.friendly_name|tojson }},"location":"home","online":true,"feet":{{d*5280.0}}}
+           {%- endif -%}
+         {%- endif -%}
+       {%- else -%}
+         {"device":"none","location":"unknown","online":false,"feet":0}}
+       {%- endif -%}
+    status_keli:
+      friendly_name: "Keli's status"
+      entity_id:
+        - group.devices_keli
+      value_template: >
+       {% if states.group.devices_keli is defined %}
+         {%- set e = closest(states.group.devices_keli) -%}
+         {%- if e is defined -%} 
+           {%- set d = distance(e) -%}
+           {%- if e.source_type == 'gps' -%} 
+             {"device":{{ e.attributes.friendly_name|tojson }},"location":{{e.state|tojson}},"online":{{(e.attributes.device_status == 'online')|tojson}},"feet":{{d*5280.0}}}
+           {%- else -%}
+             {"device":{{ e.attributes.friendly_name|tojson }},"location":"home","online":true,"feet":{{d*5280.0}}}
+           {%- endif -%}
+         {%- endif -%}
+       {%- else -%}
+         {"device":"none","location":"unknown","online":false,"feet":0}}
+       {%- endif -%}
+    status_hali:
+      friendly_name: "Hali's status"
+      entity_id:
+        - group.devices_hali
+      value_template: >
+       {% if states.group.devices_hali is defined %}
+         {%- set e = closest(states.group.devices_hali) -%}
+         {%- if e is defined -%} 
+           {%- set d = distance(e) -%}
+           {%- if e.source_type == 'gps' -%} 
+             {"device":{{ e.attributes.friendly_name|tojson }},"location":{{e.state|tojson}},"online":{{(e.attributes.device_status == 'online')|tojson}},"feet":{{d*5280.0}}}
+           {%- else -%}
+             {"device":{{ e.attributes.friendly_name|tojson }},"location":"home","online":true,"feet":{{d*5280.0}}}
+           {%- endif -%}
+         {%- endif -%}
+       {%- else -%}
+         {"device":"none","location":"unknown","online":false,"feet":0}}
+       {%- endif -%}
+    status_ian:
+      friendly_name: "Ian's status"
+      entity_id:
+        - group.devices_ian
+      value_template: >
+       {% if states.group.devices_ian is defined %}
+       {%- set e = closest(states.group.devices_ian) -%}
+         {%- if e is defined -%} 
+           {%- set d = distance(e) -%}
+           {%- if e.source_type == 'gps' -%} 
+             {"device":{{ e.attributes.friendly_name|tojson }},"location":{{e.state|tojson}},"online":{{(e.attributes.device_status == 'online')|tojson}},"feet":{{d*5280.0}}}
+           {%- else -%}
+             {"device":{{ e.attributes.friendly_name|tojson }},"location":"home","online":true,"feet":{{d*5280.0}}}
+           {%- endif -%}
+         {%- endif -%}
+       {%- else -%}
+         {"device":"none","location":"unknown","online":false,"feet":0}}
+       {%- endif -%}
+    status_riley:
+      friendly_name: "Riley's status"
+      entity_id:
+        - group.devices_riley
+      value_template: >
+       {% if states.group.devices_riley is defined %}
+         {%- set e = closest(states.group.devices_riley) -%}
+         {%- if e is defined -%} 
+           {%- set d = distance(e) -%}
+           {%- if e.source_type == 'gps' -%} 
+             {"device":{{ e.attributes.friendly_name|tojson }},"location":{{e.state|tojson}},"online":{{(e.attributes.device_status == 'online')|tojson}},"feet":{{d*5280.0}}}
+           {%- else -%}
+             {"device":{{ e.attributes.friendly_name|tojson }},"location":"home","online":true,"feet":{{d*5280.0}}}
+           {%- endif -%}
+         {%- endif -%}
+       {%- else -%}
+         {"device":"none","location":"unknown","online":false,"feet":0}}
+       {%- endif -%}
+    status_ellen:
+      friendly_name: "Ellen's status"
+      entity_id:
+        - group.devices_ellen
+      value_template: >
+       {% if states.group.devices_ellen is defined %}
+         {%- set e = closest(states.group.devices_ellen) -%}
+         {%- if e is defined -%} 
+           {%- set d = distance(e) -%}
+           {%- if e.source_type == 'gps' -%} 
+             {"device":{{ e.attributes.friendly_name|tojson }},"location":{{e.state|tojson}},"online":{{(e.attributes.device_status == 'online')|tojson}},"feet":{{d*5280.0}}}
+           {%- else -%}
+             {"device":{{ e.attributes.friendly_name|tojson }},"location":"home","online":true,"feet":{{d*5280.0}}}
+           {%- endif -%}
+         {%- endif -%}
+       {%- else -%}
+         {"device":"none","location":"unknown","online":false,"feet":0}}
+       {%- endif -%}
+    location_david:
+      friendly_name: "David's location"
+      entity_id:
+        - group.devices_david
+        - sun.sun
+      value_template: >
+       {% if states.group.devices_david is defined %}
+        {{ closest(states.group.devices_david).state }}
+       {% else %}
+         'unknown'
+       {% endif %}
+    location_keli:
+      friendly_name: "Keli's location"
+      entity_id: 
+        - group.devices_keli
+        - sun.sun
+      value_template: >
+       {% if states.group.devices_keli is defined %}
+        {{ closest(states.group.devices_keli).state }}
+       {% else %}
+         'unknown'
+       {% endif %}
+    location_hali:
+      friendly_name: "Hali's location"
+      entity_id: 
+        - group.devices_hali
+        - sun.sun
+      value_template: >
+       {% if states.group.devices_hali is defined %}
+        {{ closest(states.group.devices_hali).state }}
+       {% else %}
+         'unknown'
+       {% endif %}
+    location_ian:
+      friendly_name: "Ian's location"
+      entity_id: 
+        - group.devices_ian
+        - sun.sun
+      value_template: >
+       {% if states.group.devices_ian is defined %}
+        {{ closest(states.group.devices_ian).state }}
+       {% else %}
+         'unknown'
+       {% endif %}
+    location_riley:
+      friendly_name: "Riley's location"
+      entity_id:
+        - group.devices_riley
+        - sun.sun
+      value_template: >
+       {% if states.group.devices_riley is defined %}
+        {{ closest(states.group.devices_riley).state }}
+       {% else %}
+         'unknown'
+       {% endif %}
+    location_ellen:
+      friendly_name: "Ellen's location"
+      entity_id:
+        - group.devices_ellen
+        - sun.sun
+      value_template: >
+       {% if states.group.devices_ellen is defined %}
+        {{ closest(states.group.devices_ellen).state }}
+       {% else %}
+         'unknown'
+       {% endif %}
+
+logger: !include logger.yaml
+group: !include groups.yaml
+
+###
+### CONFIGURATION AND DISCOVERY
+###
+
+sensor aah_device_count:
+  - platform: rest
+    resource: 'http://age-at-home.dcmartin.com:8999/CGI/aah-devices.cgi'
+    name: aah_device_count
+    value_template: >
+      {%- if value_json is defined -%}
+        {%- if value_json.devices is defined -%}
+          {%- if value_json.devices != [] -%}
+            {{ value_json.devices|length | default(0) }}
+          {%- else -%} 0 {%- endif -%}
+        {%- else -%} -1 {%- endif -%}
+      {%- else -%} -2 {%- endif -%}
+
+sensor aah_device_names:
+  - platform: rest
+    resource: 'http://age-at-home.dcmartin.com:8999/CGI/aah-devices.cgi'
+    name: aah_device_names
+    value_template: >
+      {%- if value_json is defined -%}
+        {%- if value_json.devices is defined -%}
+          {%- if value_json.devices != [] -%}
+          {%- for device in value_json.devices -%}
+            {%- if loop.first -%} {%- else -%}, {%- endif -%} 
+            {{ device.name | default(null) }}
+          {%- endfor -%}
+          {%- else -%} 'no device' {%- endif -%}
+        {%- else -%} 'undefined' {%- endif -%}
+      {%- else -%} 'no service' {%- endif -%}
+
+sensor aah_device_dates:
+  - platform: rest
+    resource: 'http://age-at-home.dcmartin.com:8999/CGI/aah-devices.cgi'
+    name: aah_device_dates
+    value_template: >
+      {%- if value_json is defined -%}
+        {%- if value_json.devices is defined -%}
+          {%- if value_json.devices != [] -%}
+          {%- for device in value_json.devices -%}
+            {%- if loop.first -%} {%- else -%}, {%- endif -%} 
+            {{ (device.date|int) | default(null) }}
+          {%- endfor -%}
+          {%- else -%} 'no device' {%- endif -%}
+        {%- else -%} 'undefined' {%- endif -%}
+      {%- else -%} 'no service' {%- endif -%}
+
+binary_sensor device_template:
+  platform: template
+  sensors:
+    kitchen_online:
+      entity_id:
+        - device_tracker.ageathome_kitchen
+      value_template: >
+        {{ states.device_tracker.ageathome_kitchen is defined and
+           states.device_tracker.ageathome_kitchen.state is defined and
+           states.device_tracker.ageathome_kitchen.state == 'home' }}
+    bathroom_online:
+      entity_id:
+        - device_tracker.ageathome_bathroom
+      value_template: >
+        {{ states.device_tracker.ageathome_bathroom is defined and
+           states.device_tracker.ageathome_bathroom.state is defined and
+           states.device_tracker.ageathome_bathroom.state == 'home' }}
+    frontdoor_online:
+      entity_id:
+        - device_tracker.ageathome_frontdoor
+      value_template: >
+        {{ states.device_tracker.ageathome_frontdoor is defined and
+           states.device_tracker.ageathome_frontdoor.state is defined and
+           states.device_tracker.ageathome_frontdoor.state == 'home' }}
+    road_online:
+      entity_id:
+        - device_tracker.ageathome_road
+      value_template: >
+        {{ states.device_tracker.ageathome_road is defined and
+           states.device_tracker.ageathome_road.state is defined and
+           states.device_tracker.ageathome_road.state == 'home' }}
+    gate_online:
+      entity_id:
+        - device_tracker.ageathome_gate
+      value_template: >
+        {{ states.device_tracker.ageathome_gate is defined and
+           states.device_tracker.ageathome_gate.state is defined and
+           states.device_tracker.ageathome_gate.state == 'home' }}
+    poolhouse_online:
+      entity_id:
+        - device_tracker.ageathome_poolhouse
+      value_template: >
+        {{ states.device_tracker.ageathome_poolhouse is defined and
+           states.device_tracker.ageathome_poolhouse.state is defined and
+           states.device_tracker.ageathome_poolhouse.state == 'home' }}
+
+
+## determine if aah_discovery & aah_config are defined (url, ..)
+binary_sensor template:
+  - platform: template
+    sensors:
+      aah_discovery_complete:
+        entity_id: 
+          - sensor.aah_discovery
+        value_template: >
+          {{ states.binary_sensor.aah_discovery is defined and
+             states.binary_sensor.aah_discovery.state != 'unknown' and
+             states.binary_sensor.aah_discovery.attributes is defined and
+             states.binary_sensor.aah_discovery.attributes.url is defined and
+             states.binary_sensor.aah_discovery.attributes.url != 'null' }}
+      aah_config_complete:
+        entity_id: 
+          - sensor.aah_config
+        value_template: >
+          {{ states.binary_sensor.aah_config is defined and
+             states.binary_sensor.aah_config.state != 'unknown' and
+             states.binary_sensor.aah_config.attributes is defined and
+             states.binary_sensor.aah_config.attributes.vr_apikey is defined and
+             states.binary_sensor.aah_config.attributes.vr_apikey != 'null' }}
+
+history_graph: !include history_graphs.yaml
+
+##
+## SCRIPTS
+##
+
+# nothing (yet)
+script: !include scripts.yaml
+
+##
+## AUTOMATIONS
+##
+
+automation: !include automations.yaml
+
+##
+## SCENES
+##
+
+scene: !include scenes.yaml
+
+##
+## INPUTS
+##
+
+input_boolean: !include input_booleans.yaml
+
+input_number: !include input_numbers.yaml
+
+input_select: !include input_selects.yaml
+
+# input_text: !include input_texts.yaml
+
+###
+### INFLUX DB
+###
+
+influxdb:
+  host: 127.0.0.1
+  port: 8086
+  database: homeassistant
+  username: homeassistant
+  password: !secret http_api_password
+  max_retries: 3
+  default_measurement: state
+
+###
+### INTERNET TEST
+###
+
+sensor internet_test:
+  - platform: command_line
+    command: speedtest --json | jq '.date='$(date +%s)'|.latitude=(.client.lat|tonumber)|.longitude=(.client.lon|tonumber)'
+    name: internet_test
+    scan_interval: 120
+    command_timeout: 60
+    json_attributes:
+      - server
+      - latitude
+      - longitude
+      - bytes_sent
+      - bytes_received
+      - client 
+      - date
+      - timestamp
+      - ping
+      - download
+      - upload 
+    value_template: >
+      {%- if value_json is defined -%}
+        {{ value_json.date | timestamp_custom("%a %b %d @ %I:%M %p") }}
+      {%- else -%}null{%- endif -%}
+  - platform: template
+    sensors:
+      internet_test_receive:
+        entity_id:
+          - sensor.internet_test
+        unit_of_measurement: Mbps
+        value_template: >
+          {% if states.sensor.internet_test.attributes.download is defined and states.sensor.internet_test.attributes.download != null %}
+            {{ '%0.2f' | format(states.sensor.internet_test.attributes.download / 1000000.0) }}
+          {%- else -%}null{%- endif -%}
+      internet_test_send:
+        entity_id:
+          - sensor.internet_test
+        unit_of_measurement: Mbps
+        value_template: >
+          {% if states.sensor.internet_test.attributes.upload is defined and states.sensor.internet_test.attributes.upload != null %}
+            {{ '%0.2f' | format(states.sensor.internet_test.attributes.upload / 1000000.0) }}
+          {%- else -%}null{%- endif -%}
+      internet_receive_mean:
+        entity_id:
+          - sensor.internet_receive_statistics_mean
+        unit_of_measurement: Mbps
+        value_template: >
+          {% if states.sensor.internet_receive_statistics_mean is defined %}
+            {{ states.sensor.internet_receive_statistics_mean.state }}
+          {%- else -%}null{%- endif -%}
+      internet_receive_min_value:
+        entity_id:
+          - sensor.internet_receive_statistics_mean
+        unit_of_measurement: Mbps
+        value_template: >
+          {% if states.sensor.internet_receive_statistics_mean is defined %}
+            {{ states.sensor.internet_receive_statistics_mean.attributes.min_value }}
+          {%- else -%}null{%- endif -%}
+      internet_receive_max_value:
+        entity_id:
+          - sensor.internet_receive_statistics_mean
+        unit_of_measurement: Mbps
+        value_template: >
+          {% if states.sensor.internet_receive_statistics_mean is defined %}
+            {{ states.sensor.internet_receive_statistics_mean.attributes.max_value }}
+          {%- else -%}null{%- endif -%}
+      internet_receive_standard_deviation:
+        entity_id:
+          - sensor.internet_receive_statistics_mean
+        unit_of_measurement: Mbps
+        value_template: >
+          {% if states.sensor.internet_receive_statistics_mean is defined %}
+            {{ states.sensor.internet_receive_statistics_mean.attributes.standard_deviation }}
+          {%- else -%}null{%- endif -%}
+      internet_send_mean:
+        entity_id:
+          - sensor.internet_send_statistics_mean
+        unit_of_measurement: Mbps
+        value_template: >
+          {% if states.sensor.internet_send_statistics_mean is defined %}
+            {{ states.sensor.internet_send_statistics_mean.state }}
+          {%- else -%}null{%- endif -%}
+      internet_send_min_value:
+        entity_id:
+          - sensor.internet_send_statistics_mean
+        unit_of_measurement: Mbps
+        value_template: >
+          {% if states.sensor.internet_send_statistics_mean is defined %}
+            {{ states.sensor.internet_send_statistics_mean.attributes.min_value }}
+          {%- else -%}null{%- endif -%}
+      internet_send_max_value:
+        entity_id:
+          - sensor.internet_send_statistics_mean
+        unit_of_measurement: Mbps
+        value_template: >
+          {% if states.sensor.internet_send_statistics_mean is defined %}
+            {{ states.sensor.internet_send_statistics_mean.attributes.max_value }}
+          {%- else -%}null{%- endif -%}
+      internet_send_standard_deviation:
+        entity_id:
+          - sensor.internet_send_statistics_mean
+        unit_of_measurement: Mbps
+        value_template: >
+          {% if states.sensor.internet_send_statistics_mean is defined %}
+            {{ states.sensor.internet_send_statistics_mean.attributes.standard_deviation }}
+          {%- else -%}null{%- endif -%}
+      internet_test_ago:
+        entity_id:
+          - sensor.internet_test
+          - sun.sun
+        unit_of_measurement: seconds
+        value_template: '{{ (now().timestamp()|int) - (states.sensor.internet_test.attributes.date|int) }}'
+      internet_tests_count:
+        entity_id:
+          - sensor.internet_test_count
+        unit_of_measurement: tests
+        value_template: >
+          {% if states.sensor.internet_test_count is defined %}
+            {{ states.sensor.internet_test_count.state }}
+          {%- else -%}null{%- endif -%}
+      internet_slow_count:
+        entity_id:
+          - sensor.internet_slow_test_count
+        unit_of_measurement: tests
+        value_template: >
+          {% if states.sensor.internet_slow_test_count is defined %}
+            {{ states.sensor.internet_slow_test_count.state }}
+          {%- else -%}null{%- endif -%}
+      internet_fast_count:
+        entity_id:
+          - sensor.internet_fast_test_count
+        unit_of_measurement: tests
+        value_template: >
+          {% if states.sensor.internet_fast_test_count is defined %}
+            {{ states.sensor.internet_fast_test_count.state }}
+          {%- else -%}null{%- endif -%}
+  - platform: statistics
+    entity_id: sensor.internet_test_send
+    name: internet_send_statistics
+    sampling_size: 20
+    max_age:
+      hours: 24
+  - platform: statistics
+    entity_id: sensor.internet_test_receive
+    name: internet_receive_statistics
+    sampling_size: 20
+    max_age:
+      hours: 24
+  - platform: statistics
+    entity_id: sensor.internet_send_standard_deviation
+    name: internet_send_stdev
+    sampling_size: 120
+    max_age:
+      hours: 24
+  - platform: statistics
+    entity_id: sensor.internet_receive_standard_deviation
+    name: internet_receive_stdev
+    sampling_size: 120
+    max_age:
+      hours: 24
+  - platform: history_stats
+    name: internet_test_count
+    entity_id: binary_sensor.internet_test_state
+    state: 'on'
+    type: count
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+  - platform: history_stats
+    name: internet_slow_test_count
+    entity_id: binary_sensor.internet_slow
+    state: 'on'
+    type: count
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+  - platform: history_stats
+    name: internet_fast_test_count
+    entity_id: binary_sensor.internet_fast
+    state: 'on'
+    type: count
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+binary_sensor internet_test:
+  - platform: template
+    sensors:
+      internet_test_state:
+        entity_id:
+          - sensor.internet_test
+          - sensor.internet_test_ago
+        value_template: >
+          {% if states.sensor.internet_test_ago.state|int > 30 %}False{% else %}True{% endif %}
+      internet_slow:
+        entity_id:
+          - sensor.internet_test_receive
+          - sensor.internet_receive_statistics_mean
+          - input_number.internet_deviation
+        value_template: >-
+          {% if states.sensor.internet_receive_statistics_mean is defined and states.sensor.internet_receive_statistics_mean.attributes.standard_deviation|float > 0.0 %}
+          {{ (((states.sensor.internet_receive_mean.state|float) - (states.sensor.internet_test_receive.state|float))
+               / (states.sensor.internet_receive_statistics_mean.attributes.standard_deviation|float) 
+             > (states.input_number.internet_deviation.state|float)) }}
+          {% else %}null{% endif %}
+        icon_template: >
+            mdi:emoticon-sad
+      internet_fast:
+        entity_id:
+          - sensor.internet_test_receive
+          - sensor.internet_receive_statistics_mean
+          - input_number.internet_deviation
+        value_template: >-
+          {% if states.sensor.internet_receive_statistics_mean is defined and states.sensor.internet_receive_statistics_mean.attributes.standard_deviation|float > 0 %}
+          {{ (((states.sensor.internet_test_receive.state|float) - (states.sensor.internet_receive_mean.state|float))
+               / (states.sensor.internet_receive_statistics_mean.attributes.standard_deviation|float)) 
+             > (states.input_number.internet_deviation.state|float) }}
+          {% else %}null{% endif %}
+        icon_template: >-
+            mdi:emoticon-happy
+      internet_slow_persistent:
+        entity_id:
+          - sensor.internet_test_receive
+          - sensor.internet_receive_stdev_mean
+          - input_number.internet_deviation
+        value_template: >-
+          {% if states.sensor.internet_receive_stdev_mean is defined and states.sensor.internet_receive_stdev_mean.state|float > 0 %}
+          {{ (((states.sensor.internet_receive_mean.state|float) - (states.sensor.internet_test_receive.state|float))
+               / (states.sensor.internet_receive_stdev_mean.state|float) 
+             > (states.input_number.internet_deviation.state|float)) }}
+          {% else %}null{% endif %}
+        icon_template: >
+            mdi:emoticon-sad
+      internet_fast_persistent:
+        entity_id:
+          - sensor.internet_test_receive
+          - sensor.internet_receive_stdev_mean
+          - input_number.internet_deviation
+        value_template: >-
+          {% if states.sensor.internet_receive_stdev_mean is defined and states.sensor.internet_receive_stdev_mean.state|float > 0 %} 
+          {{ (((states.sensor.internet_test_receive.state|float) - (states.sensor.internet_receive_mean.state|float))
+               / (states.sensor.internet_receive_stdev_mean.state|float)) 
+             > (states.input_number.internet_deviation.state|float) }}
+          {% else %}null{% endif %}
+        icon_template: >-
+            mdi:emoticon-happy
+
+###
+### INTRANET TEST
+###
+
+sensor intranet_docsisgw_test:
+  - platform: command_line
+    command: iperf3 -c 192.168.1.32 -J | jq '{"date":.start.timestamp.timesecs,"send":.end.sum_sent.bits_per_second,"receive":.end.sum_received.bits_per_second}'
+    name: intranet_docsisgw_test
+    scan_interval: 120
+    command_timeout: 60
+    json_attributes:
+      - date
+      - send
+      - receive
+    value_template: >
+      {%- if value_json is defined -%}
+        {{ value_json.date | timestamp_custom("%a %b %d @ %I:%M %p") }}
+      {%- else -%}null{%- endif -%}
+  - platform: template
+    sensors:
+      intranet_docsisgw_test_receive:
+        entity_id:
+          - sensor.intranet_docsisgw_test
+        unit_of_measurement: Mbps
+        value_template: >
+          {% if states.sensor.intranet_docsisgw_test.attributes.receive is defined and states.sensor.intranet_docsisgw_test.attributes.receive != null %}
+            {{ '%0.2f' | format(states.sensor.intranet_docsisgw_test.attributes.receive / 1000000.0) }}
+          {%- else -%}null{%- endif -%}
+      intranet_docsisgw_test_send:
+        entity_id:
+          - sensor.intranet_docsisgw_test
+        unit_of_measurement: Mbps
+        value_template: >
+          {% if states.sensor.intranet_docsisgw_test.attributes.send is defined and states.sensor.intranet_docsisgw_test.attributes.send != null %}
+            {{ '%0.2f' | format(states.sensor.intranet_docsisgw_test.attributes.send / 1000000.0) }}
+          {%- else -%}null{%- endif -%}
+      intranet_docsisgw_receive_mean:
+        entity_id:
+          - sensor.intranet_docsisgw_receive_statistics_mean
+        unit_of_measurement: Mbps
+        value_template: >
+          {% if states.sensor.intranet_docsisgw_receive_statistics_mean is defined %}
+            {{ states.sensor.intranet_docsisgw_receive_statistics_mean.state }}
+          {%- else -%}null{%- endif -%}
+      intranet_docsisgw_receive_min_value:
+        entity_id:
+          - sensor.intranet_docsisgw_receive_statistics_mean
+        unit_of_measurement: Mbps
+        value_template: >
+          {% if states.sensor.intranet_docsisgw_receive_statistics_mean is defined %}
+            {{ states.sensor.intranet_docsisgw_receive_statistics_mean.attributes.min_value }}
+          {%- else -%}null{%- endif -%}
+      intranet_docsisgw_receive_max_value:
+        entity_id:
+          - sensor.intranet_docsisgw_receive_statistics_mean
+        unit_of_measurement: Mbps
+        value_template: >
+          {% if states.sensor.intranet_docsisgw_receive_statistics_mean is defined %}
+            {{ states.sensor.intranet_docsisgw_receive_statistics_mean.attributes.max_value }}
+          {%- else -%}null{%- endif -%}
+      intranet_docsisgw_receive_standard_deviation:
+        entity_id:
+          - sensor.intranet_docsisgw_receive_statistics_mean
+        unit_of_measurement: Mbps
+        value_template: >
+          {% if states.sensor.intranet_docsisgw_receive_statistics_mean is defined %}
+            {{ states.sensor.intranet_docsisgw_receive_statistics_mean.attributes.standard_deviation }}
+          {%- else -%}null{%- endif -%}
+      intranet_docsisgw_send_mean:
+        entity_id:
+          - sensor.intranet_docsisgw_send_statistics_mean
+        unit_of_measurement: Mbps
+        value_template: >
+          {% if states.sensor.intranet_docsisgw_send_statistics_mean is defined %}
+            {{ states.sensor.intranet_docsisgw_send_statistics_mean.state }}
+          {%- else -%}null{%- endif -%}
+      intranet_docsisgw_send_min_value:
+        entity_id:
+          - sensor.intranet_docsisgw_send_statistics_mean
+        unit_of_measurement: Mbps
+        value_template: >
+          {% if states.sensor.intranet_docsisgw_send_statistics_mean is defined %}
+            {{ states.sensor.intranet_docsisgw_send_statistics_mean.attributes.min_value }}
+          {%- else -%}null{%- endif -%}
+      intranet_docsisgw_send_max_value:
+        entity_id:
+          - sensor.intranet_docsisgw_send_statistics_mean
+        unit_of_measurement: Mbps
+        value_template: >
+          {% if states.sensor.intranet_docsisgw_send_statistics_mean is defined %}
+            {{ states.sensor.intranet_docsisgw_send_statistics_mean.attributes.max_value }}
+          {%- else -%}null{%- endif -%}
+      intranet_docsisgw_send_standard_deviation:
+        entity_id:
+          - sensor.intranet_docsisgw_send_statistics_mean
+        unit_of_measurement: Mbps
+        value_template: >
+          {% if states.sensor.intranet_docsisgw_send_statistics_mean is defined %}
+            {{ states.sensor.intranet_docsisgw_send_statistics_mean.attributes.standard_deviation }}
+          {%- else -%}null{%- endif -%}
+      intranet_docsisgw_test_ago:
+        entity_id:
+          - sensor.intranet_docsisgw_test
+          - sun.sun
+        unit_of_measurement: seconds
+        value_template: '{{ (now().timestamp()|int) - (states.sensor.intranet_docsisgw_test.attributes.date|int) }}'
+      intranet_docsisgw_test_state:
+        entity_id:
+          - sensor.intranet_docsisgw_test_ago
+        value_template: >
+          {% if states.sensor.intranet_docsisgw_test_ago.state|int > 30 %}False{% else %}True{% endif %}
+      intranet_docsisgw_count:
+        entity_id:
+          - sensor.intranet_docsisgw_test_count
+        unit_of_measurement: tests
+        value_template: >
+          {% if states.sensor.intranet_docsisgw_test_count is defined %}
+            {{ states.sensor.intranet_docsisgw_test_count.state }}
+          {%- else -%}null{%- endif -%}
+  - platform: statistics
+    entity_id: sensor.intranet_docsisgw_test_send
+    name: intranet_docsisgw_send_statistics
+    max_age:
+      hours: 24
+  - platform: statistics
+    entity_id: sensor.intranet_docsisgw_test_receive
+    name: intranet_docsisgw_receive_statistics
+    max_age:
+      hours: 24
+  - platform: history_stats
+    name: intranet_docsisgw_test_count
+    entity_id: sensor.intranet_docsisgw_test_state
+    state: True
+    type: count
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+binary_sensor intranet_docsisgw_test:
+  - platform: template
+    sensors:
+      intranet_docsisgw_test_state:
+        entity_id:
+          - sensor.intranet_docsisgw_test
+          - sensor.intranet_docsisgw_test_ago
+        value_template: >
+          {% if states.sensor.intranet_docsisgw_test_ago.state|int > 30 %}False{% else %}True{% endif %}
+      intranet_docsisgw_slow:
+        entity_id:
+          - sensor.intranet_docsisgw_test_receive
+          - sensor.intranet_docsisgw_receive_statistics_mean
+          - input_number.intranet_docsisgw_deviation
+        value_template: >-
+          {% if states.sensor.intranet_docsisgw_receive_statistics_mean is defined and states.sensor.intranet_docsisgw_receive_statistics_mean.attributes.standard_deviation|float > 0 %}
+          {{ (((states.sensor.intranet_docsisgw_receive_mean.state|float) - (states.sensor.intranet_docsisgw_test_receive.state|float))
+               / (states.sensor.intranet_docsisgw_receive_statistics_mean.attributes.standard_deviation|float) 
+             > (states.input_number.intranet_docsisgw_deviation.state|float)) }}
+          {% else %}null{% endif %}
+        icon_template: >
+            mdi:emoticon-sad
+      intranet_docsisgw_fast:
+        entity_id:
+          - sensor.intranet_docsisgw_test_receive
+          - sensor.intranet_docsisgw_receive_statistics_mean
+          - input_number.intranet_docsisgw_deviation
+        value_template: >-
+          {% if states.sensor.intranet_docsisgw_receive_statistics_mean is defined and states.sensor.intranet_docsisgw_receive_statistics_mean.attributes.standard_deviation|float > 0 %}
+          {{ (((states.sensor.intranet_docsisgw_test_receive.state|float) - (states.sensor.intranet_docsisgw_receive_mean.state|float))
+               / (states.sensor.intranet_docsisgw_receive_statistics_mean.attributes.standard_deviation|float)) 
+             > (states.input_number.intranet_docsisgw_deviation.state|float) }}
+          {% else %}null{% endif %}
+        icon_template: >-
+            mdi:emoticon-happy
+      intranet_docsisgw_slow_persistent:
+        entity_id:
+          - sensor.intranet_docsisgw_test_receive
+          - sensor.intranet_docsisgw_receive_stdev_mean
+          - input_number.intranet_docsisgw_deviation
+        value_template: >-
+          {% if states.sensor.intranet_docsisgw_receive_stdev_mean is defined and states.sensor.intranet_docsisgw_receive_stdev_mean.state|float > 0 %}
+          {{ (((states.sensor.intranet_docsisgw_receive_mean.state|float) - (states.sensor.intranet_docsisgw_test_receive.state|float))
+               / (states.sensor.intranet_docsisgw_receive_stdev_mean.state|float) 
+             > (states.input_number.intranet_docsisgw_deviation.state|float)) }}
+          {% else %}null{% endif %}
+        icon_template: >
+            mdi:emoticon-sad
+      intranet_docsisgw_fast_persistent:
+        entity_id:
+          - sensor.intranet_docsisgw_test_receive
+          - sensor.intranet_docsisgw_receive_stdev_mean
+          - input_number.intranet_docsisgw_deviation
+        value_template: >-
+          {% if states.sensor.intranet_docsisgw_receive_stdev_mean is defined and states.sensor.intranet_docsisgw_receive_stdev_mean.state|float > 0 %}
+          {{ (((states.sensor.intranet_docsisgw_test_receive.state|float) - (states.sensor.intranet_docsisgw_receive_mean.state|float))
+               / (states.sensor.intranet_docsisgw_receive_stdev_mean.state|float)) 
+             > (states.input_number.intranet_docsisgw_deviation.state|float) }}
+          {% else %}null{% endif %}
+        icon_template: >-
+            mdi:emoticon-happy
+
+sensor intranet_dslgw_test:
+  - platform: command_line
+    command: iperf3 -c 192.168.1.32 -J | jq '{"date":.start.timestamp.timesecs,"send":.end.sum_sent.bits_per_second,"receive":.end.sum_received.bits_per_second}'
+    name: intranet_dslgw_test
+    scan_interval: 120
+    command_timeout: 60
+    json_attributes:
+      - date
+      - send
+      - receive
+    value_template: >
+      {%- if value_json is defined -%}
+        {{ value_json.date | timestamp_custom("%a %b %d @ %I:%M %p") }}
+      {%- else -%}null{%- endif -%}
+  - platform: template
+    sensors:
+      intranet_dslgw_test_receive:
+        entity_id:
+          - sensor.intranet_dslgw_test
+        unit_of_measurement: Mbps
+        value_template: >
+          {% if states.sensor.intranet_dslgw_test.attributes.receive is defined and states.sensor.intranet_dslgw_test.attributes.receive != null %}
+            {{ '%0.2f' | format(states.sensor.intranet_dslgw_test.attributes.receive / 1000000.0) }}
+          {%- else -%}null{%- endif -%}
+      intranet_dslgw_test_send:
+        entity_id:
+          - sensor.intranet_dslgw_test
+        unit_of_measurement: Mbps
+        value_template: >
+          {% if states.sensor.intranet_dslgw_test.attributes.send is defined and states.sensor.intranet_dslgw_test.attributes.send != null %}
+            {{ '%0.2f' | format(states.sensor.intranet_dslgw_test.attributes.send / 1000000.0) }}
+          {%- else -%}null{%- endif -%}
+      intranet_dslgw_receive_mean:
+        entity_id:
+          - sensor.intranet_dslgw_receive_statistics_mean
+        unit_of_measurement: Mbps
+        value_template: >
+          {% if states.sensor.intranet_dslgw_receive_statistics_mean is defined %}
+            {{ states.sensor.intranet_dslgw_receive_statistics_mean.state }}
+          {%- else -%}null{%- endif -%}
+      intranet_dslgw_receive_min_value:
+        entity_id:
+          - sensor.intranet_dslgw_receive_statistics_mean
+        unit_of_measurement: Mbps
+        value_template: >
+          {% if states.sensor.intranet_dslgw_receive_statistics_mean is defined %}
+            {{ states.sensor.intranet_dslgw_receive_statistics_mean.attributes.min_value }}
+          {%- else -%}null{%- endif -%}
+      intranet_dslgw_receive_max_value:
+        entity_id:
+          - sensor.intranet_dslgw_receive_statistics_mean
+        unit_of_measurement: Mbps
+        value_template: >
+          {% if states.sensor.intranet_dslgw_receive_statistics_mean is defined %}
+            {{ states.sensor.intranet_dslgw_receive_statistics_mean.attributes.max_value }}
+          {%- else -%}null{%- endif -%}
+      intranet_dslgw_receive_standard_deviation:
+        entity_id:
+          - sensor.intranet_dslgw_receive_statistics_mean
+        unit_of_measurement: Mbps
+        value_template: >
+          {% if states.sensor.intranet_dslgw_receive_statistics_mean is defined %}
+            {{ states.sensor.intranet_dslgw_receive_statistics_mean.attributes.standard_deviation }}
+          {%- else -%}null{%- endif -%}
+      intranet_dslgw_send_mean:
+        entity_id:
+          - sensor.intranet_dslgw_send_statistics_mean
+        unit_of_measurement: Mbps
+        value_template: >
+          {% if states.sensor.intranet_dslgw_send_statistics_mean is defined %}
+            {{ states.sensor.intranet_dslgw_send_statistics_mean.state }}
+          {%- else -%}null{%- endif -%}
+      intranet_dslgw_send_min_value:
+        entity_id:
+          - sensor.intranet_dslgw_send_statistics_mean
+        unit_of_measurement: Mbps
+        value_template: >
+          {% if states.sensor.intranet_dslgw_send_statistics_mean is defined %}
+            {{ states.sensor.intranet_dslgw_send_statistics_mean.attributes.min_value }}
+          {%- else -%}null{%- endif -%}
+      intranet_dslgw_send_max_value:
+        entity_id:
+          - sensor.intranet_dslgw_send_statistics_mean
+        unit_of_measurement: Mbps
+        value_template: >
+          {% if states.sensor.intranet_dslgw_send_statistics_mean is defined %}
+            {{ states.sensor.intranet_dslgw_send_statistics_mean.attributes.max_value }}
+          {%- else -%}null{%- endif -%}
+      intranet_dslgw_send_standard_deviation:
+        entity_id:
+          - sensor.intranet_dslgw_send_statistics_mean
+        unit_of_measurement: Mbps
+        value_template: >
+          {% if states.sensor.intranet_dslgw_send_statistics_mean is defined %}
+            {{ states.sensor.intranet_dslgw_send_statistics_mean.attributes.standard_deviation }}
+          {%- else -%}null{%- endif -%}
+      intranet_dslgw_test_ago:
+        entity_id:
+          - sensor.intranet_dslgw_test
+          - sun.sun
+        unit_of_measurement: seconds
+        value_template: '{{ (now().timestamp()|int) - (states.sensor.intranet_dslgw_test.attributes.date|int) }}'
+      intranet_dslgw_test_state:
+        entity_id:
+          - sensor.intranet_dslgw_test_ago
+        value_template: >
+          {% if states.sensor.intranet_dslgw_test_ago.state|int > 30 %}False{% else %}True{% endif %}
+      intranet_dslgw_count:
+        entity_id:
+          - sensor.intranet_dslgw_test_count
+        unit_of_measurement: tests
+        value_template: >
+          {% if states.sensor.intranet_dslgw_test_count is defined %}
+            {{ states.sensor.intranet_dslgw_test_count.state }}
+          {%- else -%}null{%- endif -%}
+  - platform: statistics
+    entity_id: sensor.intranet_dslgw_test_send
+    name: intranet_dslgw_send_statistics
+    max_age:
+      hours: 24
+  - platform: statistics
+    entity_id: sensor.intranet_dslgw_test_receive
+    name: intranet_dslgw_receive_statistics
+    max_age:
+      hours: 24
+  - platform: history_stats
+    name: intranet_dslgw_test_count
+    entity_id: sensor.intranet_dslgw_test_state
+    state: True
+    type: count
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+
+binary_sensor intranet_dslgw_test:
+  - platform: template
+    sensors:
+      intranet_dslgw_test_state:
+        entity_id:
+          - sensor.intranet_dslgw_test
+          - sensor.intranet_dslgw_test_ago
+        value_template: >
+          {% if states.sensor.intranet_dslgw_test_ago.state|int > 30 %}False{% else %}True{% endif %}
+      intranet_dslgw_slow:
+        entity_id:
+          - sensor.intranet_dslgw_test_receive
+          - sensor.intranet_dslgw_receive_statistics_mean
+          - input_number.intranet_dslgw_deviation
+        value_template: >-
+          {% if states.sensor.intranet_dslgw_receive_statistics_mean is defined and states.sensor.intranet_dslgw_receive_statistics_mean.attributes.standard_deviation|float > 0 %}
+          {{ (((states.sensor.intranet_dslgw_receive_mean.state|float) - (states.sensor.intranet_dslgw_test_receive.state|float))
+               / (states.sensor.intranet_dslgw_receive_statistics_mean.attributes.standard_deviation|float) 
+             > (states.input_number.intranet_dslgw_deviation.state|float)) }}
+          {% else %}null{% endif %}
+        icon_template: >
+            mdi:emoticon-sad
+      intranet_dslgw_fast:
+        entity_id:
+          - sensor.intranet_dslgw_test_receive
+          - sensor.intranet_dslgw_receive_statistics_mean
+          - input_number.intranet_dslgw_deviation
+        value_template: >-
+          {% if states.sensor.intranet_dslgw_receive_statistics_mean is defined and states.sensor.intranet_dslgw_receive_statistics_mean.attributes.standard_deviation|float > 0 %}
+          {{ (((states.sensor.intranet_dslgw_test_receive.state|float) - (states.sensor.intranet_dslgw_receive_mean.state|float))
+               / (states.sensor.intranet_dslgw_receive_statistics_mean.attributes.standard_deviation|float)) 
+             > (states.input_number.intranet_dslgw_deviation.state|float) }}
+          {% else %}null{% endif %}
+        icon_template: >-
+            mdi:emoticon-happy
+      intranet_dslgw_slow_persistent:
+        entity_id:
+          - sensor.intranet_dslgw_test_receive
+          - sensor.intranet_dslgw_receive_stdev_mean
+          - input_number.intranet_dslgw_deviation
+        value_template: >-
+          {% if states.sensor.intranet_dslgw_receive_stdev_mean is defined and states.sensor.intranet_dslgw_receive_stdev_mean.state|float > 0 %}
+          {{ (((states.sensor.intranet_dslgw_receive_mean.state|float) - (states.sensor.intranet_dslgw_test_receive.state|float))
+               / (states.sensor.intranet_dslgw_receive_stdev_mean.state|float) 
+             > (states.input_number.intranet_dslgw_deviation.state|float)) }}
+          {% else %}null{% endif %}
+        icon_template: >
+            mdi:emoticon-sad
+      intranet_dslgw_fast_persistent:
+        entity_id:
+          - sensor.intranet_dslgw_test_receive
+          - sensor.intranet_dslgw_receive_stdev_mean
+          - input_number.intranet_dslgw_deviation
+        value_template: >-
+          {% if states.sensor.intranet_dslgw_receive_stdev_mean is defined and states.sensor.intranet_dslgw_receive_stdev_mean.state|float > 0 %}
+          {{ (((states.sensor.intranet_dslgw_test_receive.state|float) - (states.sensor.intranet_dslgw_receive_mean.state|float))
+               / (states.sensor.intranet_dslgw_receive_stdev_mean.state|float)) 
+             > (states.input_number.intranet_dslgw_deviation.state|float) }}
+          {% else %}null{% endif %}
+        icon_template: >-
+            mdi:emoticon-happy
+
+###
+### MOTION
+###
+
+sensor motion_sensors:
+  - platform: mqtt
+    name: motion_configuration_localhost
+    state_topic: 'motion/havm/start'
+    json_attributes:
+      - unit_system
+      - latitude
+      - longitude
+      - elevation
+      - interval
+      - minimum_animate
+      - post_pictures
+      - share_dir
+      - name
+      - host
+      - date
+      - www
+      - devicedb
+      - timezone
+      - mqtt
+      - watson
+      - digits
+      - motion
+      - cameras
+    value_template: >
+      {% if value_json is defined %}True{% else %}null{% endif %}
+  - platform: mqtt
+    name: motion_configuration_network
+    state_topic: 'motion/+/start'
+    json_attributes:
+      - unit_system
+      - latitude
+      - longitude
+      - elevation
+      - interval
+      - minimum_animate
+      - post_pictures
+      - share_dir
+      - name
+      - host
+      - date
+      - www
+      - devicedb
+      - timezone
+      - mqtt
+      - watson
+      - digits
+      - motion
+      - cameras
+    value_template: >
+      {% if value_json is defined %}True{% else %}null{% endif %}
+  - platform: mqtt
+    name: motion_camera_found
+    state_topic: 'motion/+/+/status/found'
+    expire_after: 1
+    force_update: true
+    json_attributes:
+      - device
+      - camera
+      - date
+      - status
+    value_template: >
+      {% if value_json is defined %}True{% else %}null{% endif %}
+  - platform: mqtt
+    name: motion_camera_lost
+    state_topic: 'motion/+/+/status/lost'
+    expire_after: 1
+    force_update: true
+    json_attributes:
+      - device
+      - camera
+      - date
+      - status
+    value_template: >
+      {% if value_json is defined %}True{% else %}null{% endif %}
+  - platform: mqtt
+    name: motion_event_image
+    state_topic: 'motion/+/+/event/image'
+    expire_after: 1
+    force_update: true
+    json_attributes:
+      - device
+      - camera
+      - type
+      - date
+      - seqno
+      - event
+      - id
+      - center
+      - width
+      - height
+      - size
+      - noise
+    value_template: >
+      {% if value_json is defined %}True{% else %}null{% endif %}
+  - platform: mqtt
+    name: motion_event_end
+    state_topic: 'motion/+/+/event/end'
+    expire_after: 1
+    force_update: true
+    json_attributes:
+      - device
+      - camera
+      - event
+      - start
+      - end
+      - elapsed
+      - date
+      - images
+    value_template: >
+      {% if value_json is defined %}True{% else %}null{% endif %}
+  - platform: template
+    sensors:
+      motion_configuration_localhost_camera_count:
+        entity_id:
+          - sensor.motion_configuration_localhost
+        value_template: >-
+          {% if states.sensor.motion_configuration_localhost.attributes.cameras is defined %}
+            {{ states.sensor.motion_configuration_localhost.attributes.cameras | length }}
+          {% else %}null{% endif %}
+      motion_configuration_localhost_camera_names:
+        entity_id:
+          - sensor.motion_configuration_localhost
+        value_template: >-
+          {% if states.sensor.motion_configuration_localhost.attributes.cameras is defined %}
+            {%- for camera in states.sensor.motion_configuration_localhost.attributes.cameras -%}
+              {% if loop.first %}[{% else %},{% endif %}
+              {{- camera.name | tojson -}}
+              {%- if loop.last -%}]{%- endif -%}
+            {% endfor %}
+          {% else %}null{% endif %}
+      motion_configuration_network_camera_count:
+        entity_id:
+          - sensor.motion_configuration_network
+        value_template: >-
+          {% if states.sensor.motion_configuration_network.attributes.cameras is defined %}
+            {{ states.sensor.motion_configuration_network.attributes.cameras | length }}
+          {% else %}null{% endif %}
+      motion_configuration_network_camera_names:
+        entity_id:
+          - sensor.motion_configuration_network
+        value_template: >-
+          {% if states.sensor.motion_configuration_network.attributes.cameras is defined %}
+            {%- for camera in states.sensor.motion_configuration_network.attributes.cameras -%}
+              {% if loop.first %}[{% else %},{% endif %}
+              {{- camera.name | tojson -}}
+              {%- if loop.last -%}]{%- endif -%}
+            {% endfor %}
+          {% else %}null{% endif %}
+      motion_event_end_ago:
+        entity_id:
+          - sensor.motion_event_end
+          - sun.sun
+        unit_of_measurement: seconds
+        value_template: '{{ (now().timestamp()|int) - (states.sensor.motion_event_end.attributes.date|int) }}'
+        icon_template: '{% if (states.sensor.motion_event_end.attributes.date|int) > 300 %} mdi:timer-off {% else %} mdi:timer {% endif %}'
+      motion_event_end_image_first:
+        entity_id:
+          - sensor.motion_event_end
+        value_template: >-
+          {% if states.sensor.motion_event_end is defined %}
+            {% for image in states.sensor.motion_event_end.attributes.images %}
+              {% if loop.first %} {{ image }} {% endif %}
+            {% endfor %}
+          {% else %} null {% endif %}
+      motion_event_end_image_last:
+        entity_id:
+          - sensor.motion_event_end
+        value_template: >-
+          {% if states.sensor.motion_event_end is defined %}
+            {% for image in states.sensor.motion_event_end.attributes.images %}
+              {% if loop.last %} {{ image }} {% endif %}
+            {% endfor %}
+          {% else %} null {% endif %}
+      motion_event_end_image_count:
+        entity_id:
+          - sensor.motion_event_end
+        unit_of_measurement: 'images'
+        value_template: >
+          {% if states.sensor.motion_event_end is defined %}
+            {{ states.sensor.motion_event_end.attributes.images | length }}
+          {% else %} null {% endif %}
+      motion_event_end_when:
+        entity_id:
+          - sensor.motion_event_end
+        value_template: >
+          {% if states.sensor.motion_event_end is defined %}
+            {{ states.sensor.motion_event_end.attributes.date | timestamp_custom("%a %b %d ~ %I:%M %p") }}
+          {% else %} null {% endif %}
+      motion_event_end_device:
+        entity_id:
+          - sensor.motion_event_end
+        value_template: >
+          {% if states.sensor.motion_event_end is defined %}
+            {{ states.sensor.motion_event_end.attributes.device }}
+          {% else %} null {% endif %}
+      motion_event_end_camera:
+        entity_id:
+          - sensor.motion_event_end
+        value_template: >
+          {% if states.sensor.motion_event_end is defined %}
+            {{ states.sensor.motion_event_end.attributes.camera }}
+          {% else %} null {% endif %}
+      motion_event_end_event:
+        entity_id:
+          - sensor.motion_event_end
+        value_template: >
+          {% if states.sensor.motion_event_end is defined %}
+            {{ states.sensor.motion_event_end.attributes.event }}
+          {% else %} null {% endif %}
+      motion_event_end_start:
+        entity_id:
+          - sensor.motion_event_end
+        unit_of_measurement: seconds
+        value_template: >
+          {% if states.sensor.motion_event_end is defined %}
+            {{ states.sensor.motion_event_end.attributes.start | int }}
+          {% else %}null{% endif %}
+      motion_event_end_end:
+        entity_id:
+          - sensor.motion_event_end
+        unit_of_measurement: seconds
+        value_template: >
+          {% if states.sensor.motion_event_end is defined %}
+            {{ states.sensor.motion_event_end.attributes.end | int }}
+          {% else %}null{% endif %}
+      motion_event_end_elapsed:
+        entity_id:
+          - sensor.motion_event_end
+        unit_of_measurement: seconds
+        value_template: >
+          {% if states.sensor.motion_event_end is defined %}
+            {{ states.sensor.motion_event_end.attributes.elapsed }}
+          {% else %}null{% endif %}
+      motion_event_count:
+        entity_id:
+          - sensor.motion_event_end_count
+        unit_of_measurement: events
+        value_template: >
+          {% if states.sensor.motion_event_end_count is defined %}
+            {{ states.sensor.motion_event_end_count.state }}
+          {%- else -%}null{%- endif -%}
+      motion_event_ratio:
+        entity_id:
+          - sensor.motion_event_end_ratio
+        unit_of_measurement: '%'
+        value_template: >
+          {% if states.sensor.motion_event_end_ratio is defined %}
+            {{ states.sensor.motion_event_end_ratio.state }}
+          {%- else -%}null{%- endif -%}
+      motion_event_elapsed_mean:
+        entity_id:
+          - sensor.motion_event_elapsed_statistics_mean
+        unit_of_measurement: seconds
+        value_template: >
+          {% if states.sensor.motion_event_elapsed_statistics_mean is defined %}
+            {{ states.sensor.motion_event_elapsed_statistics_mean.state }}
+          {%- else -%}null{%- endif -%}
+      motion_event_ago_mean:
+        entity_id:
+          - sensor.motion_event_ago_statistics_mean
+        unit_of_measurement: seconds
+        value_template: >
+          {% if states.sensor.motion_event_ago_statistics_mean is defined %}
+            {{ states.sensor.motion_event_ago_statistics_mean.state }}
+          {%- else -%}null{%- endif -%}
+  - platform: history_stats
+    name: motion_event_end_count
+    entity_id: sensor.motion_event_end
+    state: True
+    type: count
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+  - platform: history_stats
+    name: motion_event_end_time
+    entity_id: sensor.motion_event_end
+    state: True
+    type: time
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+  - platform: history_stats
+    name: motion_event_ratio
+    entity_id: sensor.motion_event_end
+    state: True
+    type: ratio
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+  - platform: history_stats
+    name: motion_event_count
+    entity_id: sensor.motion_event_end
+    state: True
+    type: count
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+  - platform: history_stats
+    name: motion_event_end_time
+    entity_id: sensor.motion_event_end
+    state: True
+    type: time
+    start: '{{ now().replace(hour=0).replace(minute=0).replace(second=0) }}'
+    end: '{{ now() }}'
+  - platform: statistics
+    name: motion_event_ago_statistics
+    entity_id: sensor.motion_event_end_ago
+    max_age:
+      hours: 24
+  - platform: statistics
+    name: motion_event_elapsed_statistics
+    entity_id: sensor.motion_event_end_elapsed
+    max_age:
+      hours: 24
+
+# CAMERA
+camera motion_cameras:
+  # LOCALHOST
+  - platform: mjpeg
+    name: motion_localhost_live
+    mjpeg_url: http://cb7b3237-motion:8090/
+    username: !secret motion_username
+    password: !secret motion_password
+  - platform: mqtt
+    name: motion_localhost_image
+    topic: 'motion/p40/kinect/image'
+  - platform: mqtt
+    name: motion_localhost_average
+    topic: 'motion/p40/kinect/image-average'
+  - platform: mqtt
+    name: motion_localhost_blend
+    topic: 'motion/p40/kinect/image-blend'
+  - platform: mqtt
+    name: motion_localhost_animated_mask
+    topic: 'motion/p40/kinect/image-animated-mask'
+  - platform: mqtt
+    name: motion_localhost_composite
+    topic: 'motion/p40/kinect/image-composite'
+  - platform: mqtt
+    name: motion_localhost_animated
+    topic: 'motion/p40/kinect/image-animated'
+  - platform: mqtt
+    name: motion_localhost_annotated
+    topic: 'motion/p40/kinect/image-annotated'
+  - platform: mqtt
+    name: motion_localhost_cropped
+    topic: 'motion/p40/kinect/image-cropped'
+  - platform: mqtt
+    name: motion_localhost_image
+    topic: 'motion/p40/kinect/image'
+  # LAST
+  - platform: mqtt
+    name: motion_last_image
+    topic: 'motion/+/+/image'
+  - platform: mqtt
+    name: motion_last_image_annotated
+    topic: 'motion/+/+/image/+'
+  - platform: mqtt
+    name: motion_last_average
+    topic: 'motion/+/+/image-average'
+  - platform: mqtt
+    name: motion_last_blend
+    topic: 'motion/+/+/image-blend'
+  - platform: mqtt
+    name: motion_last_animated_mask
+    topic: 'motion/+/+/image-animated-mask'
+  - platform: mqtt
+    name: motion_last_composite
+    topic: 'motion/+/+/image-composite'
+  - platform: mqtt
+    name: motion_last_cropped
+    topic: 'motion/+/+/image-cropped'
+  # ANNOTATED
+  - platform: mqtt
+    name: motion_last_annotated
+    topic: 'motion/+/+/image/+'
+  - platform: mqtt
+    name: motion_backyard_annotated
+    topic: 'motion/+/backyard/image/+'
+  - platform: mqtt
+    name: motion_diningroom_annotated
+    topic: 'motion/+/diningroom/image/+'
+  - platform: mqtt
+    name: motion_dogpond_annotated
+    topic: 'motion/+/dogpond/image/+'
+  - platform: mqtt
+    name: motion_dogshed_annotated
+    topic: 'motion/+/dogshed/image/+'
+  - platform: mqtt
+    name: motion_dogshedfront_annotated
+    topic: 'motion/+/dogshedfront/image/+'
+  - platform: mqtt
+    name: motion_dogshedmiddle_annotated
+    topic: 'motion/+/dogshedmiddle/image/+'
+  - platform: mqtt
+    name: motion_dogyard_annotated
+    topic: 'motion/+/dogyard/image/+'
+  - platform: mqtt
+    name: motion_fireplace_annotated
+    topic: 'motion/+/fireplace/image/+'
+  - platform: mqtt
+    name: motion_foyer_annotated
+    topic: 'motion/+/foyer/image/+'
+  - platform: mqtt
+    name: motion_frontwalk_annotated
+    topic: 'motion/+/frontwalk/image/+'
+  - platform: mqtt
+    name: motion_garage_annotated
+    topic: 'motion/+/garage/image/+'
+  - platform: mqtt
+    name: motion_gravelpad_annotated
+    topic: 'motion/+/gravelpad/image/+'
+  - platform: mqtt
+    name: motion_laundry_annotated
+    topic: 'motion/+/laundry/image/+'
+  - platform: mqtt
+    name: motion_livingroom_annotated
+    topic: 'motion/+/livingroom/image/+'
+  - platform: mqtt
+    name: motion_phexterior_annotated
+    topic: 'motion/+/phexterior/image/+'
+  - platform: mqtt
+    name: motion_pondview_annotated
+    topic: 'motion/+/pondview/image/+'
+  - platform: mqtt
+    name: motion_poolcam_annotated
+    topic: 'motion/+/poolcam/image/+'
+  - platform: mqtt
+    name: motion_upperpathgate_annotated
+    topic: 'motion/+/upperpathgate/image/+'
+  - platform: mqtt
+    name: motion_woodshed_annotated
+    topic: 'motion/+/woodshed/image/+'
+  - platform: mqtt
+    name: motion_kinect_annotated
+    topic: 'motion/+/kinect/image/+'
+  - platform: mqtt
+    name: motion_sideyard_annotated
+    topic: 'motion/+/kinect/image/+'
+  # ANIMATED
+  - platform: mqtt
+    name: motion_last_animated
+    topic: 'motion/+/+/image-animated'
+  - platform: mqtt
+    name: motion_sideyard_animated
+    topic: 'motion/+/sideyard/image-animated'
+  - platform: mqtt
+    name: motion_backyard_animated
+    topic: 'motion/+/backyard/image-animated'
+  - platform: mqtt
+    name: motion_diningroom_animated
+    topic: 'motion/+/diningroom/image-animated'
+  - platform: mqtt
+    name: motion_dogpond_animated
+    topic: 'motion/+/dogpond/image-animated'
+  - platform: mqtt
+    name: motion_dogshed_animated
+    topic: 'motion/+/dogshed/image-animated'
+  - platform: mqtt
+    name: motion_dogshedfront_animated
+    topic: 'motion/+/dogshedfront/image-animated'
+  - platform: mqtt
+    name: motion_dogshedmiddle_animated
+    topic: 'motion/+/dogshedmiddle/image-animated'
+  - platform: mqtt
+    name: motion_dogyard_animated
+    topic: 'motion/+/dogyard/image-animated'
+  - platform: mqtt
+    name: motion_fireplace_animated
+    topic: 'motion/+/fireplace/image-animated'
+  - platform: mqtt
+    name: motion_foyer_animated
+    topic: 'motion/+/foyer/image-animated'
+  - platform: mqtt
+    name: motion_frontwalk_animated
+    topic: 'motion/+/frontwalk/image-animated'
+  - platform: mqtt
+    name: motion_garage_animated
+    topic: 'motion/+/garage/image-animated'
+  - platform: mqtt
+    name: motion_gravelpad_animated
+    topic: 'motion/+/gravelpad/image-animated'
+  - platform: mqtt
+    name: motion_laundry_animated
+    topic: 'motion/+/laundry/image-animated'
+  - platform: mqtt
+    name: motion_livingroom_animated
+    topic: 'motion/+/livingroom/image-animated'
+  - platform: mqtt
+    name: motion_phexterior_animated
+    topic: 'motion/+/phexterior/image-animated'
+  - platform: mqtt
+    name: motion_pondview_animated
+    topic: 'motion/+/pondview/image-animated'
+  - platform: mqtt
+    name: motion_poolcam_animated
+    topic: 'motion/+/poolcam/image-animated'
+  - platform: mqtt
+    name: motion_upperpathgate_animated
+    topic: 'motion/+/upperpathgate/image-animated'
+  - platform: mqtt
+    name: motion_woodshed_animated
+    topic: 'motion/+/woodshed/image-animated'
+  - platform: mqtt
+    name: motion_kinect_animated
+    topic: 'motion/+/kinect/image-animated'
+  # IMAGE
+  - platform: mqtt
+    name: motion_backyard_image
+    topic: 'motion/+/backyard/image'
+  - platform: mqtt
+    name: motion_diningroom_image
+    topic: 'motion/+/diningroom/image'
+  - platform: mqtt
+    name: motion_dogpond_image
+    topic: 'motion/+/dogpond/image'
+  - platform: mqtt
+    name: motion_dogshed_image
+    topic: 'motion/+/dogshed/image'
+  - platform: mqtt
+    name: motion_dogshedfront_image
+    topic: 'motion/+/dogshedfront/image'
+  - platform: mqtt
+    name: motion_dogshedmiddle_image
+    topic: 'motion/+/dogshedmiddle/image'
+  - platform: mqtt
+    name: motion_dogyard_image
+    topic: 'motion/+/dogyard/image'
+  - platform: mqtt
+    name: motion_fireplace_image
+    topic: 'motion/+/fireplace/image'
+  - platform: mqtt
+    name: motion_foyer_image
+    topic: 'motion/+/foyer/image'
+  - platform: mqtt
+    name: motion_frontwalk_image
+    topic: 'motion/+/frontwalk/image'
+  - platform: mqtt
+    name: motion_garage_image
+    topic: 'motion/+/garage/image'
+  - platform: mqtt
+    name: motion_gravelpad_image
+    topic: 'motion/+/gravelpad/image'
+  - platform: mqtt
+    name: motion_laundry_image
+    topic: 'motion/+/laundry/image'
+  - platform: mqtt
+    name: motion_livingroom_image
+    topic: 'motion/+/livingroom/image'
+  - platform: mqtt
+    name: motion_phexterior_image
+    topic: 'motion/+/phexterior/image'
+  - platform: mqtt
+    name: motion_pondview_image
+    topic: 'motion/+/pondview/image'
+  - platform: mqtt
+    name: motion_poolcam_image
+    topic: 'motion/+/poolcam/image'
+  - platform: mqtt
+    name: motion_upperpathgate_image
+    topic: 'motion/+/upperpathgate/image'
+  - platform: mqtt
+    name: motion_woodshed_image
+    topic: 'motion/+/woodshed/image'
+  - platform: mqtt
+    name: motion_kinect_image
+    topic: 'motion/+/kinect/image'

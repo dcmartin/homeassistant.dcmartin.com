@@ -1,0 +1,13 @@
+.HA_VERSION
+.cloud/
+.homekit.state
+.ios.conf
+.storage/
+.uuid
+airsonos.xml
+backup/
+home-assistant.log
+home-assistant_v2.db
+icloud/
+plex.conf
+secrets.yaml

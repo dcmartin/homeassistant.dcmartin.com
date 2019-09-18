@@ -1,0 +1,987 @@
+default_view:
+  view: true
+  name: Default View
+  icon: mdi:home-variant
+  control: hidden
+  entities:
+    - group.people
+    - group.ageathome_cameras_last
+    - group.motion_cameras_last
+    - group.when_and_where
+
+when_and_where:
+  name: When & Where
+  entities:
+    - sensor.last_when
+    - sensor.last_where
+    - sensor.motion_event_end_when
+    - sensor.motion_event_end_camera
+
+ageathome_cameras_last:
+  name: ageathome cameras last
+  entities:
+    - camera.last_image_annotated
+    - camera.last_image_animated
+
+people:
+  name: People
+  entities:
+    - sensor.location_david
+    - sensor.location_keli
+    - sensor.location_hali
+    - sensor.location_ian
+    - sensor.location_riley
+    - sensor.location_ellen
+
+## HIDDEN GROUPS
+
+motion:
+  name: Motion
+  icon: mdi:people
+  control: hidden
+  entities:
+    - binary_sensor.interior_motion
+    - binary_sensor.exterior_motion
+
+switches:
+  name: Switches
+  control: hidden
+  entities:
+    - switch.fronthall_lamp
+    - switch.kitchen_tv
+    - switch.livingroom_tv
+    - switch.livingroom_lights
+    - switch.ian_tv
+
+lights:
+  name: Lights
+  icon: mdi:lamp
+  control: hidden
+  entities:
+    - light.living_room
+
+#
+# OVER VIEW
+#
+
+over_view:
+  view: true
+  name: Over View
+  icon: mdi:looks
+  entities:
+    - group.switches
+    - group.lights
+    - group.iphones
+    - group.sensor_counts
+    - group.family_detection
+      
+devices_david:
+  name: devices_david
+  entities:
+    - device_tracker.davids_iphone
+    - device_tracker.dcmsiphone7
+    - device_tracker.davidcsapple_watch
+
+devices_keli:
+  name: devices_keli
+  entities:
+    - device_tracker.kelisiphone7
+    - device_tracker.kelimac
+    - device_tracker.kelisapple_watch
+
+devices_hali:
+  name: devices_hali
+  entities:
+    - device_tracker.halisiphone 
+    - device_tracker.haliair
+    - device_tracker.halisapple_watch
+    - device_tracker.halimartinsipad
+
+devices_ian:
+  name: devices_ian
+  entities:
+    - device_tracker.ianmartinsiphone
+    - device_tracker.ianmartinsapple_watch
+
+devices_riley:
+  name: devices_riley
+  entities:
+    - device_tracker.rileysiphone5
+    - device_tracker.rileysmacbookair
+
+devices_ellen:
+  name: devices_ellen
+  entities:
+    - device_tracker.ellens_ipad4prez
+    - device_tracker.ellensiphone5
+    - device_tracker.ellensipadpro
+
+iphones:
+  name: iPhones
+  entities:
+    - device_tracker.davids_iphone
+    - device_tracker.kelis_iphone
+    - device_tracker.ellens_iphone
+    - device_tracker.rileys_iphone
+    - device_tracker.dcmsiphone7
+    - device_tracker.kelisiphone7
+    - device_tracker.halisiphone
+    - device_tracker.ianmartinsiphone
+    - device_tracker.rileysiphone5
+    - device_tracker.ellensiphone
+
+#
+# PLAY1
+#
+
+sonos_view:
+  view: true
+  icon: mdi:speaker
+  name: Sonos View
+  entities:
+    - media_player.play1
+    - group.sonos_play1
+    - media_player.play3
+    - group.sonos_play3
+
+sensor_counts:
+  view: no
+  name: Sensor Counts
+  icon: mdi:sensor
+  entities:
+    - sensor.count_binary_sensors
+    - sensor.count_cameras
+    - sensor.count_device_trackers
+    - sensor.count_media_players
+    - sensor.count_sensors
+    - sensor.count_lights
+    - sensor.count_automations
+    - sensor.count_zones
+
+family_detection:
+  view: no
+  name: Family Detection
+  icon: mdi:sensor
+  entities:
+    - binary_sensor.family_frontdoor
+    - binary_sensor.family_detected
+    - binary_sensor.family_bathroom
+    - binary_sensor.family_kitchen
+    - binary_sensor.family_road
+    - binary_sensor.kitchen_david
+    - binary_sensor.kitchen_keli
+    - binary_sensor.home_david
+    - binary_sensor.home_keli
+    - binary_sensor.home_hali
+    - binary_sensor.home_ian
+    - binary_sensor.home_riley
+    - binary_sensor.home_ellen
+
+###
+### AGE-AT-HOME
+###
+
+ageathome_view:
+  view: true
+  name: AgeAtHome View
+  icon: mdi:human-male-female
+  entities:
+    - group.ageathome_learning
+    - camera.last_image
+    - camera.last_image_annotated
+    - camera.last_image_animated
+    - camera.last_image_cropped
+    - group.ageathome_devices
+    - group.ageathome_last
+    - group.ageathome_locations_when
+    - group.ageathome_events_ago
+    - group.ageathome_motion
+    - group.ageathome_wrong
+
+ageathome_learning:
+  name: Learning
+  icon: mdi:train
+  control: hidden
+  entities:
+    - input_boolean.ageathome_notify_email
+    - input_boolean.ageathome_notify_gate
+    - input_boolean.ageathome_notify_poolhouse
+    - input_boolean.ageathome_notify_kitchen
+    - input_boolean.ageathome_notify_bathroom
+    - input_boolean.ageathome_notify_frontdoor
+    - input_boolean.ageathome_notify_road
+    - input_boolean.ageathome_learning
+    - input_select.ageathome_learning
+
+ageathome_annotated_images:
+  view: true
+  name: AgeAtHome Annotated Images
+  icon: mdi:eye
+  entities:
+    - camera.poolhouse_image_annotated
+    - camera.gate_image_annotated
+    - camera.kitchen_image_annotated
+    - camera.bathroom_image_annotated
+    - camera.frontdoor_image_annotated
+    - camera.road_image_annotated
+
+ageathome_devices:
+  name: AgeAtHome Devices
+  icon: mdi:lan-connect
+  entities:
+    - device_tracker.roughfog
+    - device_tracker.dampcloud
+    - device_tracker.roughwind
+    - device_tracker.quietwater
+    - device_tracker.agedbush
+    - device_tracker.livelypaper
+
+ageathome_motion:
+  name: 'AgeAtHome Motion'
+  entities:
+    - binary_sensor.bathroom_motion
+    - binary_sensor.frontdoor_motion
+    - binary_sensor.kitchen_motion
+    - binary_sensor.road_motion
+    - binary_sensor.gate_motion
+    - binary_sensor.poolhouse_motion
+    - binary_sensor.interior_motion
+    - binary_sensor.exterior_motion
+    - sensor.bathroom_motion_time
+    - sensor.bathroom_motion_count
+    - sensor.frontdoor_motion_time
+    - sensor.frontdoor_motion_count
+    - sensor.kitchen_motion_time
+    - sensor.kitchen_motion_count
+    - sensor.road_motion_time
+    - sensor.road_motion_count
+    - sensor.gate_motion_time
+    - sensor.gate_motion_count
+    - sensor.poolhouse_motion_time
+    - sensor.poolhouse_motion_count
+
+ageathome_wrong:
+  name: 'AgeAtHome Wrong'
+  entities:
+    - binary_sensor.kitchen_wrong
+    - binary_sensor.bathroom_wrong
+    - binary_sensor.frontdoor_wrong
+    - binary_sensor.road_wrong
+    - binary_sensor.gate_wrong
+    - binary_sensor.poolhouse_wrong
+
+ageathome_event_end:
+  name: 'AgeAtHome Last'
+  entities:
+    - sensor.last_who
+    - sensor.last_what
+    - sensor.last_where
+    - sensor.last_when
+    - sensor.last_how
+    - sensor.last_ago
+    - sensor.kitchen_last
+    - sensor.bathroom_last
+    - sensor.frontdoor_last
+    - sensor.road_last
+    - sensor.gate_last
+    - sensor.poolhouse_last
+
+ageathome_events_ago:
+  name: 'AgeAtHome Ago' 
+  entities:
+    - sensor.kitchen_ago
+    - sensor.bathroom_ago
+    - sensor.frontdoor_ago
+    - sensor.road_ago
+    - sensor.gate_ago
+    - sensor.poolhouse_ago
+    - sensor.interior_ago
+    - sensor.exterior_ago
+
+ageathome_locations_when:
+  name: 'AgeAtHome When' 
+  entities:
+    - sensor.kitchen_when
+    - sensor.bathroom_when
+    - sensor.frontdoor_when
+    - sensor.road_when
+    - sensor.gate_when
+    - sensor.poolhouse_when
+
+# KITCHEN
+
+ageathome_kitchen_view:
+  view: true
+  name: AgeAtHome Kitchen View
+  icon: mdi:stove
+  entities:
+    - camera.kitchen_image
+    - camera.kitchen_image_annotated
+    - camera.kitchen_image_animated
+    - camera.kitchen_image_composite
+    - group.ageathome_kitchen_details
+    - history_graph.kitchen_count
+    - history_graph.kitchen_time
+    - history_graph.kitchen_ratio
+    - history_graph.kitchen_accuracy
+
+ageathome_kitchen_details:
+  name: ageathome_kitchen_details
+  entities:
+    - sensor.kitchen_who
+    - sensor.kitchen_what
+    - sensor.kitchen_when
+    - sensor.kitchen_why
+    - sensor.kitchen_ago
+    - sensor.kitchen_last
+    - binary_sensor.kitchen_motion
+    - binary_sensor.kitchen_wrong
+    - sensor.kitchen_motion_time
+    - sensor.kitchen_motion_count
+
+# BATHROOM
+
+ageathome_bathroom_view:
+  view: true
+  name: AgeAtHome Bathroom View
+  icon: mdi:anchor
+  entities:
+    - camera.bathroom_image
+    - camera.bathroom_image_annotated
+    - camera.bathroom_image_animated
+    - camera.bathroom_image_composite
+    - group.ageathome_bathroom_details
+    - history_graph.bathroom_count
+    - history_graph.bathroom_time
+    - history_graph.bathroom_ratio
+    - history_graph.bathroom_accuracy
+
+ageathome_bathroom_details:
+  name: AgeAtHome Bathroom Details
+  icon: mdi:bathroom-scale
+  entities:
+    - sensor.bathroom_who
+    - sensor.bathroom_what
+    - sensor.bathroom_when
+    - sensor.bathroom_why
+    - sensor.bathroom_ago
+    - sensor.bathroom_last
+    - binary_sensor.bathroom_motion
+    - binary_sensor.bathroom_wrong
+    - sensor.bathroom_motion_time
+    - sensor.bathroom_motion_count
+
+# FRONTDOOR
+
+ageathome_frontdoor_view:
+  view: true
+  name: AgeAtHome Frontdoor View
+  icon: mdi:door
+  entities:
+    - camera.frontdoor_image
+    - camera.frontdoor_image_annotated
+    - camera.frontdoor_image_animated
+    - camera.frontdoor_image_composite
+    - group.ageathome_frontdoor_details
+    - history_graph.frontdoor_count
+    - history_graph.frontdoor_time
+    - history_graph.frontdoor_ratio
+    - history_graph.frontdoor_accuracy
+
+ageathome_frontdoor_details:
+  name: AgeAtHome Frontdoor Details
+  icon: mdi:door
+  entities:
+    - sensor.frontdoor_who
+    - sensor.frontdoor_what
+    - sensor.frontdoor_when
+    - sensor.frontdoor_why
+    - sensor.frontdoor_ago
+    - sensor.frontdoor_last
+    - binary_sensor.frontdoor_motion
+    - binary_sensor.frontdoor_wrong
+    - sensor.frontdoor_motion_time
+    - sensor.frontdoor_motion_count
+
+# ROAD
+
+ageathome_road_view:
+  view: true
+  name: AgeAtHome Road View
+  icon: mdi:road
+  entities:
+    - camera.road_image
+    - camera.road_image_annotated
+    - camera.road_image_animated
+    - camera.road_image_composite
+    - group.ageathome_road_details
+    - history_graph.road_count
+    - history_graph.road_time
+    - history_graph.road_ratio
+    - history_graph.road_accuracy
+
+ageathome_road_details:
+  name: AgeAtHome Road Details
+  icon: mdi:road
+  entities:
+    - sensor.road_who
+    - sensor.road_what
+    - sensor.road_when
+    - sensor.road_why
+    - sensor.road_ago
+    - sensor.road_last
+    - binary_sensor.road_motion
+    - binary_sensor.road_wrong
+    - sensor.road_motion_time
+    - sensor.road_motion_count
+
+# INTERIORGATE
+
+ageathome_gate_view:
+  view: true
+  name: AgeAtHome Gate View
+  icon: mdi:gate
+  entities:
+    - camera.ageathome_gate
+    - camera.gate_image
+    - camera.gate_image_annotated
+    - camera.gate_image_animated
+    - camera.gate_image_composite
+    - group.ageathome_gate_details
+    - history_graph.gate_count
+    - history_graph.gate_time
+    - history_graph.gate_ratio
+    - history_graph.gate_accuracy
+
+ageathome_gate_details:
+  name: AgeAtHome Gate Details
+  icon: mdi:gate
+  entities:
+    - sensor.gate_who
+    - sensor.gate_what
+    - sensor.gate_when
+    - sensor.gate_why
+    - sensor.gate_ago
+    - sensor.gate_last
+    - binary_sensor.gate_motion
+    - binary_sensor.gate_wrong
+    - sensor.gate_motion_time
+    - sensor.gate_motion_count
+
+# poolhouse
+
+ageathome_poolhouse_view:
+  view: true
+  name: AgeAtHome Poolhouse View
+  icon: mdi:pool
+  entities:
+    - camera.ageathome_poolhouse
+    - camera.poolhouse_image
+    - camera.poolhouse_image_annotated
+    - camera.poolhouse_image_animated
+    - camera.poolhouse_image_composite
+    - group.ageathome_poolhouse_details
+    - history_graph.poolhouse_count
+    - history_graph.poolhouse_time
+    - history_graph.poolhouse_ratio
+    - history_graph.poolhouse_accuracy
+
+ageathome_poolhouse_details:
+  name: AgeAtHome Poolhouse Details
+  icon: mdi:pool
+  entities:
+    - sensor.poolhouse_who
+    - sensor.poolhouse_what
+    - sensor.poolhouse_when
+    - sensor.poolhouse_why
+    - sensor.poolhouse_ago
+    - sensor.poolhouse_last
+    - binary_sensor.poolhouse_motion
+    - binary_sensor.poolhouse_wrong
+    - sensor.poolhouse_motion_time
+    - sensor.poolhouse_motion_count
+
+#
+# WEATHER VIEW
+#
+
+weather_view:
+  view: true
+  name: Weather View
+  icon: mdi:weather-cloudy
+  entities:
+    - camera.wuradar
+    - group.weather_today
+    - sensor.pws_elevation
+    - camera.weatherforecast
+    - group.daily_forecast
+
+#
+# MEDIAPLAYERS VIEW
+#
+
+mediaplayers_view:
+  view: true
+  name: Mediaplayers View
+  icon: mdi:television
+  entities:
+    - group.david_plex
+    - media_player.apple_tv_2
+    - media_player.davidpro
+    - media_player.dcms_iphone
+    - media_player.fire_tv
+    - media_player.kelimac
+    - media_player.kitchen
+    - media_player.kitchen_2
+    - media_player.plex
+    - media_player.play1
+    - media_player.play3
+    - media_player.plex_web_safari
+    - media_player.poolhouse
+    - media_player.poolhouse_2
+
+david_plex:
+  name: DAVID PLEX
+  icon: mdi:television-classic
+  entities:
+    - sensor.david_plex
+
+#
+# STATUS VIEW
+#
+
+notify_controls:
+  name: Notify Controls
+  icon: mdi:notify
+  control: hidden
+  entities:
+    - input_boolean.devices_notify_offline
+    - input_boolean.motion_event_end_notify
+    - input_boolean.motion_camera_status_notify
+
+
+status_view:
+  view: true
+  name: Status View
+  icon: mdi:sitemap
+  entities:
+    - group.notify_controls
+    - group.system_status
+    - group.network_status
+    - group.tivo_status
+    - group.motion_camera_network_status
+
+sonos_play1:
+  name: Sonos PLAY1
+  entities:
+    - device_tracker.sonos_play1
+    - sensor.play1_state
+    - sensor.play1_volume
+    - sensor.play1_volume_muted
+    - sensor.play1_media_content_id
+    - sensor.play1_media_content_type
+    - sensor.play1_media_duration
+    - sensor.play1_media_title
+    - sensor.play1_media_artist
+    - sensor.play1_media_album_name
+
+sonos_play3:
+  name: Sonos PLAY3
+  entities:
+    - device_tracker.sonos_play3
+    - sensor.play3_state
+    - sensor.play3_volume
+    - sensor.play3_volume_muted
+    - sensor.play3_media_content_id
+    - sensor.play3_media_content_type
+    - sensor.play3_media_duration
+    - sensor.play3_media_title
+    - sensor.play3_media_artist
+    - sensor.play3_media_album_name
+
+system_status:
+  name: System Status
+  entities:
+    - device_tracker.comcastgw
+    - device_tracker.davidmac_en0
+    - device_tracker.davidmac_en1
+    - device_tracker.cabinmac_en0
+    - device_tracker.cabinmac_wf0
+    - device_tracker.microcell_poolhouse
+    - device_tracker.microcell_garage
+    - device_tracker.microcell_cabin
+    - device_tracker.dlicontroller
+    - device_tracker.envoy
+    - device_tracker.huebridge
+    - device_tracker.tplinkhs100
+    - device_tracker.fronthall_lamp
+    - device_tracker.kitchen_tv
+    - device_tracker.livingroom_tv
+
+network_status:
+  name: Network Status
+  entities:
+    - device_tracker.airport_equipmentpad
+    - device_tracker.airport_cabin
+    - device_tracker.airport_window
+    - device_tracker.airport_bedroom
+    - device_tracker.airport_dogshed
+    - device_tracker.airport_kitchen
+    - device_tracker.airport_poolhouse
+    - device_tracker.airport_woodshed
+    - device_tracker.airport_lowerpath
+    - device_tracker.airport_powerpole
+
+tivo_status:
+  name: TiVo Status
+  entities:
+    - device_tracker.tivo_poolhouse_premier
+    - device_tracker.tivo_cabin_series3
+    - device_tracker.tivo_poohouse_series3
+    - device_tracker.tivo_stream
+    - device_tracker.tivo_bedroom_series3
+    - device_tracker.tivo_cabin_premiere
+
+daily_forecast:
+  name: Daily Forecast
+  entities:
+    - sensor.pws_weather_1d
+    - sensor.pws_weather_1n
+    - sensor.pws_weather_2d
+    - sensor.pws_weather_2n
+    - sensor.pws_weather_3d
+    - sensor.pws_weather_3n
+    - sensor.pws_weather_4d
+    - sensor.pws_weather_4n
+
+weather_today:
+  name: Weather Today
+  entities:
+    - sun.sun
+    - sensor.solar_angle
+    - sensor.sunrise
+    - sensor.sunset
+    - sensor.pws_weather
+    - sensor.pws_feelslike_f
+    - sensor.pws_precip_today_in
+    - sensor.pws_relative_humidity
+    - sensor.pws_visibility_mi
+    - sensor.pws_wind_dir
+    - sensor.pws_wind_gust_mph
+    - sensor.pws_wind_mph
+
+ageathome_animated:
+  view: false
+  name: AgeAtHome Animated
+  entities:
+    - camera.kitchen_image_animated
+    - camera.bathroom_image_animated
+    - camera.frontdoor_image_animated
+    - camera.poolhouse_image_animated
+    - camera.frontdoor_image_animated
+    - camera.gate_image_animated
+    - camera.road_image_animated
+
+#
+# WEBCAMS VIEW
+#
+
+webcams_view:
+  view: true
+  name: Webcams View
+  icon: mdi:webcam
+  entities:
+    - camera.poolcamera
+    - group.ageathome_webcams
+    - group.wcv80n_webcams
+
+ageathome_webcams:
+  view: false
+  entities:
+    - camera.ageathome_bathroom
+    - camera.ageathome_frontdoor
+    - camera.ageathome_gate
+    - camera.ageathome_kitchen
+    - camera.ageathome_poolhouse
+    - camera.ageathome_road
+
+wcv80n_webcams:
+  view: false
+  entities:
+    - camera.wcv80n_backyard
+    - camera.wcv80n_diningroom
+    - camera.wcv80n_dogshedfront
+    - camera.wcv80n_dogshed
+    - camera.wcv80n_dogshedmiddle
+    - camera.wcv80n_dogyard
+    - camera.wcv80n_dogpond
+    - camera.wcv80n_fireplace
+    - camera.wcv80n_foyer
+    - camera.wcv80n_frontwalk
+    - camera.wcv80n_gravelpad
+    - camera.wcv80n_laundry
+    - camera.wcv80n_livingroom
+    - camera.wcv80n_pondview
+    - camera.wcv80n_phexterior
+    - camera.wcv80n_sideyard
+    - camera.wcv80n_upperpath
+    - camera.wcv80n_woodshed
+
+webcam_camera_network_status:
+  name: Motion Camera Network Status
+  entities:
+    - device_tracker.poolcamera
+    - device_tracker.wcv80n_backyard
+    - device_tracker.wcv80n_diningroom
+    - device_tracker.wcv80n_dogshedfront
+    - device_tracker.wcv80n_dogshed_interior
+    - device_tracker.wcv80n_dogshedmiddle
+    - device_tracker.wcv80n_dogyard
+    - device_tracker.wcv80n_dogpond
+    - device_tracker.wcv80n_fireplace
+    - device_tracker.wcv80n_foyer
+    - device_tracker.wcv80n_frontwalk
+    - device_tracker.wcv80n_gravelpad
+    - device_tracker.wcv80n_laundry
+    - device_tracker.wcv80n_livingroom
+    - device_tracker.wcv80n_pondview
+    - device_tracker.wcv80n_poolhouse_exterior
+    - device_tracker.wcv80n_upperpath
+    - device_tracker.wcv80n_woodshed
+
+###
+### MOTION
+###
+
+motion_group:
+  name: MOTION
+  view: true
+  icon: mdi:video
+  entities:
+    - group.motion_localhost_cameras
+    - group.motion_cameras_last
+    - group.motion_cameras_animated
+    - group.motion_history
+    - group.motion_event_end
+    - group.motion_notify_controls
+
+motion_history:
+  name: motion_history
+  icon: mdi:graph
+  entities:
+    - history_graph.motion_event_ago
+    - history_graph.motion_event_count
+    - history_graph.motion_event_elapsed
+
+motion_notify_controls:
+  name: motion_notify_controls
+  icon: mdi:notify
+  control: hidden
+  entities:
+    - input_boolean.motion_event_notify
+    - input_boolean.motion_status_notify
+    - automation.motion_event_end_notify
+    - automation.motion_camera_status_notify
+    - automation.motion_camera_network_status_notify
+
+motion_cameras_last:
+  name: motion_cameras_last
+  entities:
+    - camera.motion_last_image
+    - camera.motion_last_animated
+    - camera.motion_last_composite
+
+motion_localhost_cameras:
+  name: motion_localhost_cameras
+  entities:
+    - camera.motion_localhost_live
+    - camera.motion_localhost_animated
+    - camera.motion_localhost_composite
+    
+motion_event_end:
+  name: motion_event_end
+  entities:
+    - sensor.motion_event_end_when
+    - sensor.motion_event_end_ago
+    - sensor.motion_event_end_device
+    - sensor.motion_event_end_camera
+    - sensor.motion_event_end_elapsed
+    - sensor.motion_event_end_image_count
+    - sensor.motion_event_end_time
+    - sensor.motion_event_end_count
+    - sensor.motion_event_end_ago_mean
+
+# ANNOTATED
+webcams_annotated:
+  name: ANNOTATED 
+  view: true
+  icon: mdi:format-annotation-plus
+  entities:
+    - group.motion_images_annotated
+    - group.ageathome_annotated_images
+
+motion_images_annotated:
+  name: motion_images_annotated
+  entities:
+    - camera.motion_backyard_annotated
+    - camera.motion_diningroom_annotated
+    - camera.motion_dogpond_annotated
+    - camera.motion_dogshed_annotated
+    - camera.motion_dogshedfront_annotated
+    - camera.motion_dogshedmiddle_annotated
+    - camera.motion_dogyard_annotated
+    - camera.motion_fireplace_annotated
+    - camera.motion_foyer_annotated
+    - camera.motion_frontwalk_annotated
+    - camera.motion_gravelpad_annotated
+    - camera.motion_laundry_annotated
+    - camera.motion_livingroom_annotated
+    - camera.motion_phexterior_annotated
+    - camera.motion_pondview_annotated
+    - camera.motion_poolcam_annotated
+    - camera.motion_sideyard_annotated
+    - camera.motion_upperpathgate_annotated
+    - camera.motion_woodshed_annotated
+
+# ANMIMATED
+webcams_animated:
+  name: ANIMATED
+  view: true
+  icon: mdi:filmstrip
+  entities:
+    - group.motion_images_animated
+    - group.ageathome_animated
+
+motion_images_animated:
+  name: motion_images_animated
+  entities:
+    - camera.motion_backyard_animated
+    - camera.motion_diningroom_animated
+    - camera.motion_dogpond_animated
+    - camera.motion_dogshed_animated
+    - camera.motion_dogshedfront_animated
+    - camera.motion_dogshedmiddle_animated
+    - camera.motion_dogyard_animated
+    - camera.motion_fireplace_animated
+    - camera.motion_foyer_animated
+    - camera.motion_frontwalk_animated
+    - camera.motion_gravelpad_animated
+    - camera.motion_laundry_animated
+    - camera.motion_livingroom_animated
+    - camera.motion_phexterior_animated
+    - camera.motion_pondview_animated
+    - camera.motion_poolcam_animated
+    - camera.motion_sideyard_animated
+    - camera.motion_upperpathgate_animated
+    - camera.motion_woodshed_animated
+
+###
+### INTERNET
+###
+    
+internet_view:
+  name: INTERNET
+  view: true
+  icon: mdi:ip-network
+  entities:
+    - group.internet_details
+    - group.internet_receive
+    - group.internet_send
+    - group.internet_automations
+
+internet_details:
+  name: Internet Details
+  control: hidden
+  entities:
+    - sensor.internet_test
+    - sensor.internet_test_ago
+    - binary_sensor.internet_test_state
+    - sensor.internet_count
+    - sensor.internet_fast_count
+    - sensor.internet_slow_count
+    - input_number.internet_deviation
+    - binary_sensor.internet_slow
+    - binary_sensor.internet_fast
+    - history_graph.internet_tests
+
+internet_automations:
+  name: internet_automations
+  control: hidden
+  entities:
+    - automation.internet_slow
+    - automation.internet_fast
+    - automation.internet_slow_persistent
+    - automation.internet_fast_persistent
+
+internet_receive:
+  name: internet_receive
+  entities:
+    - sensor.internet_test_receive
+    - sensor.internet_receive_mean
+    - sensor.internet_receive_min_value
+    - sensor.internet_receive_max_value
+    - sensor.internet_receive_standard_deviation
+    - history_graph.internet_receive
+    - history_graph.internet_recv_stdev
+
+internet_send:
+  name: internet_send
+  entities:
+    - sensor.internet_test_send
+    - sensor.internet_send_mean
+    - sensor.internet_send_min_value
+    - sensor.internet_send_max_value
+    - sensor.internet_send_standard_deviation
+    - history_graph.internet_send
+    - history_graph.internet_send_stdev
+
+###
+### INTRANET
+###
+
+intranet_view:
+  name: INTRANET
+  view: true
+  icon: mdi:folder-network
+  entities:
+    - group.intranet_docsisgw_test
+    - history_graph.intranet_docsisgw_test
+    - group.intranet_dslgw_test
+    - history_graph.intranet_dslgw_test
+    - history_graph.intranet_comparison_test
+
+intranet_docsisgw_test:
+  name: Link to POOLHOUSE
+  entities:
+    - sensor.intranet_docsisgw_test
+    - sensor.intranet_docsisgw_test_receive
+    - sensor.intranet_docsisgw_test_send
+    - sensor.intranet_docsisgw_receive_mean
+    - sensor.intranet_docsisgw_receive_min_value
+    - sensor.intranet_docsisgw_receive_max_value
+    - sensor.intranet_docsisgw_receive_standard_deviation
+    - sensor.intranet_docsisgw_send_mean
+    - sensor.intranet_docsisgw_send_min_value
+    - sensor.intranet_docsisgw_send_max_value
+    - sensor.intranet_docsisgw_send_standard_deviation
+    - sensor.intranet_docsisgw_test_ago
+    - sensor.intranet_docsisgw_test_state
+    - sensor.intranet_docsisgw_count
+
+intranet_dslgw_test:
+  name: Link to SHED
+  entities:
+    - sensor.intranet_dslgw_test
+    - sensor.intranet_dslgw_test_receive
+    - sensor.intranet_dslgw_test_send
+    - sensor.intranet_dslgw_receive_mean
+    - sensor.intranet_dslgw_receive_min_value
+    - sensor.intranet_dslgw_receive_max_value
+    - sensor.intranet_dslgw_receive_standard_deviation
+    - sensor.intranet_dslgw_send_mean
+    - sensor.intranet_dslgw_send_min_value
+    - sensor.intranet_dslgw_send_max_value
+    - sensor.intranet_dslgw_send_standard_deviation
+    - sensor.intranet_dslgw_test_ago
+    - sensor.intranet_dslgw_test_state
+    - sensor.intranet_dslgw_count
