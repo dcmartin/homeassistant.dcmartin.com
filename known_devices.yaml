@@ -1510,3 +1510,27 @@ kelis_ipad_pro:
   name: Keli's iPad (2)
   picture:
   track: true
+
+dcmiphonese:
+  hide_if_away: false
+  icon:
+  mac:
+  name: dcm iphone se
+  picture:
+  track: true
+
+a4_83_e7_20_db_09:
+  hide_if_away: false
+  icon:
+  mac: A4:83:E7:20:DB:09
+  name: a4 83 e7 20 db 09
+  picture:
+  track: true
+
+7c_d1_c3_c7_27_5f:
+  hide_if_away: false
+  icon:
+  mac: 7C:D1:C3:C7:27:5F
+  name: 7c d1 c3 c7 27 5f
+  picture:
+  track: true
