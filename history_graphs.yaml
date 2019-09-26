@@ -302,7 +302,7 @@ motion_event_ago:
     - sensor.motion_event_ago_mean
 motion_event_count:
   name: motion_event_count
-  hours_to_show: 1
+  hours_to_show: 24
   refresh: 10
   entities:
     - sensor.motion_event_count
