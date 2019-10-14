@@ -12,13 +12,15 @@ mobile_app:
 cloud:
 hassio:
 discovery:
-frontend:
 config:
 map:
 conversation:
 logbook:
 snips:
 homekit:
+
+frontend:
+  themes: !include_dir_merge_named themes
 updater:
   include_used_components: true
 ifttt:
@@ -455,7 +457,7 @@ device_tracker:
     password: !secret icloud_password
     account_name: DCMARTIN
 
-## device tracking from LAN/WAN gateway 
+# device tracking from LAN/WAN gateway 
 #  - platform: mikrotik
 #    host: 192.168.1.1
 #    username: !secret mikrotik_username
@@ -3283,7 +3285,7 @@ sensor internet_test:
           - sensor.internet_receive_statistics
         unit_of_measurement: Mbps
         value_template: >
-          {% if states.sensor.internet_receive_statisticsis defined %}
+          {% if states.sensor.internet_receive_statistics is defined %}
             {{ states.sensor.internet_receive_statistics.attributes.min_value }}
           {%- else -%}null{%- endif -%}
       internet_receive_max_value:
@@ -3291,7 +3293,7 @@ sensor internet_test:
           - sensor.internet_receive_statistics
         unit_of_measurement: Mbps
         value_template: >
-          {% if states.sensor.internet_receive_statisticsis defined %}
+          {% if states.sensor.internet_receive_statistics is defined %}
             {{ states.sensor.internet_receive_statistics.attributes.max_value }}
           {%- else -%}null{%- endif -%}
       internet_receive_standard_deviation:
@@ -3299,7 +3301,7 @@ sensor internet_test:
           - sensor.internet_receive_statistics
         unit_of_measurement: Mbps
         value_template: >
-          {% if states.sensor.internet_receive_statisticsis defined %}
+          {% if states.sensor.internet_receive_statistics is defined %}
             {{ states.sensor.internet_receive_statistics.attributes.standard_deviation }}
           {%- else -%}null{%- endif -%}
       internet_send_mean:
@@ -3307,7 +3309,7 @@ sensor internet_test:
           - sensor.internet_send_statistics
         unit_of_measurement: Mbps
         value_template: >
-          {% if states.sensor.internet_send_statisticsis defined %}
+          {% if states.sensor.internet_send_statistics is defined %}
             {{ states.sensor.internet_send_statistics.state }}
           {%- else -%}null{%- endif -%}
       internet_send_min_value:
@@ -3315,7 +3317,7 @@ sensor internet_test:
           - sensor.internet_send_statistics
         unit_of_measurement: Mbps
         value_template: >
-          {% if states.sensor.internet_send_statisticsis defined %}
+          {% if states.sensor.internet_send_statistics is defined %}
             {{ states.sensor.internet_send_statistics.attributes.min_value }}
           {%- else -%}null{%- endif -%}
       internet_send_max_value:
@@ -3323,7 +3325,7 @@ sensor internet_test:
           - sensor.internet_send_statistics
         unit_of_measurement: Mbps
         value_template: >
-          {% if states.sensor.internet_send_statisticsis defined %}
+          {% if states.sensor.internet_send_statistics is defined %}
             {{ states.sensor.internet_send_statistics.attributes.max_value }}
           {%- else -%}null{%- endif -%}
       internet_send_standard_deviation:
@@ -3331,7 +3333,7 @@ sensor internet_test:
           - sensor.internet_send_statistics
         unit_of_measurement: Mbps
         value_template: >
-          {% if states.sensor.internet_send_statisticsis defined %}
+          {% if states.sensor.internet_send_statistics is defined %}
             {{ states.sensor.internet_send_statistics.attributes.standard_deviation }}
           {%- else -%}null{%- endif -%}
       internet_test_ago:

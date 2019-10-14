@@ -4,10 +4,19 @@ default_view:
   icon: mdi:home-variant
   control: hidden
   entities:
+    - group.frontend
     - group.people
     - group.ageathome_cameras_last
     - group.motion_cameras_last
     - group.when_and_where
+
+frontend:
+  name: frontend
+  view: false
+  control: hidden
+  icon: mdi:spray
+  entities:
+    - input_select.theme_select
 
 when_and_where:
   name: When & Where
